@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -11,6 +11,14 @@ import {
 import type { Exercise, LoggedSet } from "@/lib/types";
 
 export default function NewWorkoutPage() {
+  return (
+    <Suspense fallback={null}>
+      <NewWorkoutForm />
+    </Suspense>
+  );
+}
+
+function NewWorkoutForm() {
   const router = useRouter();
   const params = useSearchParams();
   const muscleGroupId = params.get("muscleGroupId") ?? "";
