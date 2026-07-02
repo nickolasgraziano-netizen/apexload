@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { suggestNextWeight } from "@/lib/suggestions";
@@ -28,7 +28,22 @@ export default function ActiveWorkoutPage() {
   const [showTimer, setShowTimer] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
 
+  const tabStripRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
   const activeExercise = plannedExercises[activeIndex] as Exercise | undefined;
+
+  function updateTabScrollState() {
+    const el = tabStripRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 0);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
+  }
+
+  useEffect(() => {
+    updateTabScrollState();
+  }, [plannedExercises]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -177,20 +192,32 @@ export default function ActiveWorkoutPage() {
       </div>
 
       {plannedExercises.length > 0 && (
-        <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
-          {plannedExercises.map((ex, i) => (
-            <button
-              key={ex.id}
-              onClick={() => setActiveIndex(i)}
-              className={`shrink-0 rounded-full px-3 py-1.5 text-xs ${
-                i === activeIndex
-                  ? "bg-copper-500 text-steel-950"
-                  : "border border-steel-600 text-chalk-300"
-              }`}
-            >
-              {ex.name}
-            </button>
-          ))}
+        <div className="relative mt-3">
+          <div
+            ref={tabStripRef}
+            onScroll={updateTabScrollState}
+            className="flex snap-x snap-mandatory gap-2 overflow-x-auto scroll-px-5 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {plannedExercises.map((ex, i) => (
+              <button
+                key={ex.id}
+                onClick={() => setActiveIndex(i)}
+                className={`shrink-0 snap-start rounded-full px-3 py-1.5 text-xs ${
+                  i === activeIndex
+                    ? "bg-copper-500 text-steel-950"
+                    : "border border-steel-600 text-chalk-300"
+                }`}
+              >
+                {ex.name}
+              </button>
+            ))}
+          </div>
+          {canScrollLeft && (
+            <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-steel-950 to-transparent" />
+          )}
+          {canScrollRight && (
+            <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-steel-950 to-transparent" />
+          )}
         </div>
       )}
 
