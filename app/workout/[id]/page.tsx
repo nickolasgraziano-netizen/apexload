@@ -8,6 +8,22 @@ import RestTimer from "@/components/RestTimer";
 import SetRow from "@/components/SetRow";
 import type { Exercise, LoggedSet, TrainingVariant, WorkoutSession, SetDifficulty } from "@/lib/types";
 
+interface SetDraft {
+  reps: number;
+  weight: number;
+  difficulty: SetDifficulty;
+  variant: TrainingVariant;
+}
+
+interface SupersetGroupView {
+  id: string;
+  exerciseIds: string[]; // ordered by position
+}
+
+const DEFAULT_DRAFT: SetDraft = { reps: 15, weight: 0, difficulty: "moderate", variant: "standard" };
+const SUPERSET_SHORT_REST = 30;
+const SUPERSET_LONG_REST = 60;
+
 export default function ActiveWorkoutPage() {
   const { id: sessionId } = useParams<{ id: string }>();
   const router = useRouter();
@@ -21,18 +37,43 @@ export default function ActiveWorkoutPage() {
   const [sessionSets, setSessionSets] = useState<LoggedSet[]>([]); // this session only
   const [previousWeekSets, setPreviousWeekSets] = useState<LoggedSet[]>([]);
 
-  const [variant, setVariant] = useState<TrainingVariant>("standard");
-  const [reps, setReps] = useState(15);
-  const [weight, setWeight] = useState<number>(0);
-  const [difficulty, setDifficulty] = useState<SetDifficulty>("moderate");
+  // Per-exercise unsaved set drafts, so hopping between exercises never loses
+  // what you were about to log — interrupted sets pick back up untouched.
+  const [drafts, setDrafts] = useState<Record<string, SetDraft>>({});
   const [showTimer, setShowTimer] = useState(false);
+  const [restKey, setRestKey] = useState(0); // bump to force a fresh countdown, even mid-rest
   const [elapsedSec, setElapsedSec] = useState(0);
+  const [justLoggedSet, setJustLoggedSet] = useState(false);
+
+  const [showPicker, setShowPicker] = useState(false);
+  const [catalog, setCatalog] = useState<(Exercise & { muscle_groups: { name: string } | null })[]>([]);
+  const [pickerQuery, setPickerQuery] = useState("");
+
+  // Supersets: 2-3 exercise tabs rotated between sets. Grouping can be
+  // created here on the fly (select tabs) or arrive pre-made from workout/new.
+  const [supersetGroups, setSupersetGroups] = useState<SupersetGroupView[]>([]);
+  const [groupingMode, setGroupingMode] = useState(false);
+  const [groupingSelection, setGroupingSelection] = useState<string[]>([]);
+  const [restSeconds, setRestSeconds] = useState(90);
 
   const tabStripRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
 
   const activeExercise = plannedExercises[activeIndex] as Exercise | undefined;
+  const draft = (activeExercise && drafts[activeExercise.id]) || DEFAULT_DRAFT;
+  const { reps, weight, difficulty, variant } = draft;
+  const activeGroup = activeExercise
+    ? supersetGroups.find((g) => g.exerciseIds.includes(activeExercise.id))
+    : undefined;
+
+  function updateDraft(patch: Partial<SetDraft>) {
+    if (!activeExercise) return;
+    setDrafts((prev) => ({
+      ...prev,
+      [activeExercise.id]: { ...(prev[activeExercise.id] || DEFAULT_DRAFT), ...patch },
+    }));
+  }
 
   function updateTabScrollState() {
     const el = tabStripRef.current;
@@ -71,6 +112,21 @@ export default function ActiveWorkoutPage() {
           .filter(Boolean) as Exercise[];
         setPlannedExercises(ordered);
       }
+
+      // Any superset groups already tied to this session — whether set up
+      // during planning (workout/new) or on the fly in a prior visit here.
+      const { data: groupRows } = await supabase
+        .from("superset_groups")
+        .select("id, superset_group_exercises ( exercise_id, position )")
+        .eq("session_id", sessionId);
+      setSupersetGroups(
+        (groupRows ?? []).map((g: any) => ({
+          id: g.id,
+          exerciseIds: (g.superset_group_exercises ?? [])
+            .sort((a: any, b: any) => a.position - b.position)
+            .map((e: any) => e.exercise_id),
+        }))
+      );
 
       // Previous week: most recent PRIOR session for this same muscle group.
       if (sess) {
@@ -131,14 +187,36 @@ export default function ActiveWorkoutPage() {
     return suggestNextWeight(allSets, activeExercise.id, variant);
   }, [allSets, activeExercise, variant]);
 
+  // Only seed the suggested weight the first time this exercise gets a
+  // draft — once the lifter has their own draft going, don't clobber it.
   useEffect(() => {
-    if (suggestion?.suggestedWeight != null) setWeight(suggestion.suggestedWeight);
-  }, [suggestion]);
+    if (!activeExercise || drafts[activeExercise.id]) return;
+    if (suggestion?.suggestedWeight != null) updateDraft({ weight: suggestion.suggestedWeight });
+  }, [suggestion, activeExercise]);
+
+  // Keep the session's exercise plan (and any added on the fly) durable
+  // across reloads, same key the active-workout page reads on mount.
+  useEffect(() => {
+    if (!sessionId || plannedExercises.length === 0) return;
+    sessionStorage.setItem(
+      `apexload:plan:${sessionId}`,
+      JSON.stringify(plannedExercises.map((e) => e.id))
+    );
+  }, [plannedExercises, sessionId]);
 
   async function logSet() {
     if (!activeExercise || !userId) return;
     const supabase = createClient();
     const setNumber = sessionSets.length + 1;
+
+    // Superset-aware rest: short between exercises in the cycle, long once
+    // you've cycled back through every exercise in the group.
+    let rest = activeExercise.default_rest_seconds;
+    if (activeGroup) {
+      const isLastInGroup =
+        activeGroup.exerciseIds[activeGroup.exerciseIds.length - 1] === activeExercise.id;
+      rest = isLastInGroup ? SUPERSET_LONG_REST : SUPERSET_SHORT_REST;
+    }
 
     const { data: newSet } = await supabase
       .from("sets")
@@ -152,12 +230,17 @@ export default function ActiveWorkoutPage() {
         actual_reps: reps,
         weight,
         difficulty,
+        superset_group_id: activeGroup?.id ?? null,
+        superset_cycle: activeGroup ? setNumber : null,
       })
       .select()
       .single();
 
     if (newSet) setSessionSets((prev) => [...prev, newSet as LoggedSet]);
+    setRestSeconds(rest);
     setShowTimer(true);
+    setRestKey((k) => k + 1);
+    setJustLoggedSet(true);
   }
 
   async function updateSet(id: string, patch: Partial<LoggedSet>) {
@@ -176,6 +259,69 @@ export default function ActiveWorkoutPage() {
     const supabase = createClient();
     await supabase.from("sessions").update({ ended_at: new Date().toISOString() }).eq("id", sessionId);
     router.push("/");
+  }
+
+  async function openPicker() {
+    setShowPicker(true);
+    if (catalog.length > 0) return;
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("exercises")
+      .select("*, muscle_groups ( name )")
+      .order("name");
+    setCatalog((data ?? []) as (Exercise & { muscle_groups: { name: string } | null })[]);
+  }
+
+  function addExerciseToSession(ex: Exercise) {
+    setPlannedExercises((prev) => {
+      const existingIndex = prev.findIndex((p) => p.id === ex.id);
+      if (existingIndex !== -1) {
+        setActiveIndex(existingIndex);
+        return prev;
+      }
+      setActiveIndex(prev.length);
+      return [...prev, ex];
+    });
+    setJustLoggedSet(false);
+    setShowPicker(false);
+    setPickerQuery("");
+  }
+
+  const filteredCatalog = catalog.filter((ex) =>
+    ex.name.toLowerCase().includes(pickerQuery.toLowerCase())
+  );
+
+  function toggleGroupingSelection(exerciseId: string) {
+    setGroupingSelection((prev) =>
+      prev.includes(exerciseId)
+        ? prev.filter((id) => id !== exerciseId)
+        : prev.length < 3
+          ? [...prev, exerciseId]
+          : prev
+    );
+  }
+
+  async function confirmSuperset() {
+    if (groupingSelection.length < 2 || !userId) return;
+    const supabase = createClient();
+    const { data: group } = await supabase
+      .from("superset_groups")
+      .insert({ session_id: sessionId, user_id: userId })
+      .select()
+      .single();
+    if (!group) return;
+
+    await supabase.from("superset_group_exercises").insert(
+      groupingSelection.map((exerciseId, position) => ({
+        group_id: group.id,
+        exercise_id: exerciseId,
+        position,
+      }))
+    );
+
+    setSupersetGroups((prev) => [...prev, { id: group.id, exerciseIds: groupingSelection }]);
+    setGroupingMode(false);
+    setGroupingSelection([]);
   }
 
   const prevWeekForExercise = previousWeekSets.filter((s) => s.exercise_id === activeExercise?.id);
@@ -198,19 +344,54 @@ export default function ActiveWorkoutPage() {
             onScroll={updateTabScrollState}
             className="flex snap-x snap-mandatory gap-2 overflow-x-auto scroll-px-5 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
-            {plannedExercises.map((ex, i) => (
-              <button
-                key={ex.id}
-                onClick={() => setActiveIndex(i)}
-                className={`shrink-0 snap-start rounded-full px-3 py-1.5 text-xs ${
-                  i === activeIndex
-                    ? "bg-copper-500 text-steel-950"
-                    : "border border-steel-600 text-chalk-300"
-                }`}
-              >
-                {ex.name}
-              </button>
-            ))}
+            {plannedExercises.map((ex, i) => {
+              const inGroup = supersetGroups.some((g) => g.exerciseIds.includes(ex.id));
+              const selected = groupingSelection.includes(ex.id);
+              return (
+                <button
+                  key={ex.id}
+                  onClick={() => {
+                    if (groupingMode) {
+                      toggleGroupingSelection(ex.id);
+                      return;
+                    }
+                    setActiveIndex(i);
+                    setJustLoggedSet(false);
+                  }}
+                  className={`shrink-0 snap-start rounded-full px-3 py-1.5 text-xs ${
+                    groupingMode
+                      ? selected
+                        ? "bg-tungsten-500 text-steel-950"
+                        : "border border-dashed border-tungsten-500 text-chalk-300"
+                      : i === activeIndex
+                        ? "bg-copper-500 text-steel-950"
+                        : "border border-steel-600 text-chalk-300"
+                  }`}
+                >
+                  {inGroup && !groupingMode && "⚡ "}
+                  {ex.name}
+                </button>
+              );
+            })}
+            <button
+              onClick={openPicker}
+              className="shrink-0 snap-start rounded-full border border-dashed border-steel-600 px-3 py-1.5 text-xs text-chalk-300"
+            >
+              + Exercise
+            </button>
+            <button
+              onClick={() => {
+                setGroupingMode((v) => !v);
+                setGroupingSelection([]);
+              }}
+              className={`shrink-0 snap-start rounded-full px-3 py-1.5 text-xs ${
+                groupingMode
+                  ? "bg-tungsten-500 text-steel-950"
+                  : "border border-dashed border-steel-600 text-chalk-300"
+              }`}
+            >
+              ⚡ {groupingMode ? "Cancel" : "Superset"}
+            </button>
           </div>
           {canScrollLeft && (
             <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-steel-950 to-transparent" />
@@ -218,6 +399,70 @@ export default function ActiveWorkoutPage() {
           {canScrollRight && (
             <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-steel-950 to-transparent" />
           )}
+        </div>
+      )}
+
+      {groupingMode && (
+        <div className="mt-2 flex items-center justify-between rounded-xl border border-tungsten-500 bg-tungsten-600/10 px-4 py-3">
+          <p className="text-sm text-tungsten-400">
+            {groupingSelection.length < 2
+              ? "Pick 2-3 exercises to alternate between"
+              : `${groupingSelection.length} selected`}
+          </p>
+          <button
+            onClick={confirmSuperset}
+            disabled={groupingSelection.length < 2}
+            className="rounded-lg bg-tungsten-500 px-3 py-1.5 text-xs font-semibold text-steel-950 disabled:opacity-40"
+          >
+            Create superset
+          </button>
+        </div>
+      )}
+
+      {plannedExercises.length === 0 && (
+        <button
+          onClick={openPicker}
+          className="mt-3 w-full rounded-xl border border-dashed border-steel-600 py-3 text-sm text-chalk-300"
+        >
+          + Add an exercise
+        </button>
+      )}
+
+      {showPicker && (
+        <div className="mt-3 rounded-xl border border-steel-700 bg-steel-900 p-3">
+          <div className="flex items-center justify-between">
+            <p className="font-mono text-xs uppercase tracking-widest text-chalk-500">
+              Pick a muscle or exercise
+            </p>
+            <button onClick={() => setShowPicker(false)} className="text-xs text-chalk-500">
+              Close
+            </button>
+          </div>
+          <input
+            autoFocus
+            placeholder="Search all exercises…"
+            value={pickerQuery}
+            onChange={(e) => setPickerQuery(e.target.value)}
+            className="mt-2 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
+          />
+          <ul className="mt-2 flex max-h-60 flex-col gap-1 overflow-y-auto">
+            {filteredCatalog.map((ex) => (
+              <li key={ex.id}>
+                <button
+                  onClick={() => addExerciseToSession(ex)}
+                  className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-chalk-100 hover:bg-steel-800"
+                >
+                  <span>{ex.name}</span>
+                  <span className="font-mono text-[10px] uppercase text-chalk-500">
+                    {ex.muscle_groups?.name}
+                  </span>
+                </button>
+              </li>
+            ))}
+            {catalog.length === 0 && (
+              <p className="px-3 py-2 text-sm text-chalk-500">Loading…</p>
+            )}
+          </ul>
         </div>
       )}
 
@@ -250,7 +495,7 @@ export default function ActiveWorkoutPage() {
 
           <div className="mt-4 flex gap-2">
             <button
-              onClick={() => setVariant("standard")}
+              onClick={() => updateDraft({ variant: "standard" })}
               className={`flex-1 rounded-xl py-2 text-sm font-semibold ${
                 variant === "standard"
                   ? "bg-copper-500 text-steel-950"
@@ -260,7 +505,7 @@ export default function ActiveWorkoutPage() {
               Standard
             </button>
             <button
-              onClick={() => setVariant("tut")}
+              onClick={() => updateDraft({ variant: "tut" })}
               className={`flex-1 rounded-xl py-2 text-sm font-semibold ${
                 variant === "tut"
                   ? "bg-tungsten-500 text-steel-950"
@@ -273,7 +518,7 @@ export default function ActiveWorkoutPage() {
 
           {suggestion?.reason === "increase" && (
             <button
-              onClick={() => setWeight((w) => w + 5)}
+              onClick={() => updateDraft({ weight: weight + 5 })}
               className="mt-3 w-full rounded-xl border border-tungsten-500 bg-tungsten-600/10 py-2 text-sm text-tungsten-400"
             >
               Hit target easy last time — bump +5 lb?
@@ -286,57 +531,93 @@ export default function ActiveWorkoutPage() {
             ))}
           </div>
 
-          <div className="mt-4 rounded-xl border border-steel-700 bg-steel-900 p-4">
-            <div className="flex gap-3">
-              <label className="flex-1">
-                <span className="font-mono text-xs text-chalk-500">Reps</span>
-                <input
-                  type="number"
-                  value={reps}
-                  onChange={(e) => setReps(Number(e.target.value))}
-                  className="mt-1 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
-                />
-              </label>
-              <label className="flex-1">
-                <span className="font-mono text-xs text-chalk-500">Weight ({"lb"})</span>
-                <input
-                  type="number"
-                  value={weight}
-                  onChange={(e) => setWeight(Number(e.target.value))}
-                  className="mt-1 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
-                />
-              </label>
-            </div>
-            <div className="mt-3 flex gap-2">
-              {(["easy", "moderate", "difficult", "failed"] as SetDifficulty[]).map((d) => (
+          {justLoggedSet ? (
+            <div className="mt-4 rounded-xl border border-steel-700 bg-steel-900 p-4">
+              <p className="text-center font-body text-chalk-100">Set logged. What's next?</p>
+              <div className="mt-3 flex flex-col gap-2">
+                {activeGroup &&
+                  (() => {
+                    const idx = activeGroup.exerciseIds.indexOf(activeExercise.id);
+                    const nextId = activeGroup.exerciseIds[(idx + 1) % activeGroup.exerciseIds.length];
+                    const nextExercise = plannedExercises.find((e) => e.id === nextId);
+                    if (!nextExercise) return null;
+                    const nextTabIndex = plannedExercises.findIndex((e) => e.id === nextId);
+                    return (
+                      <button
+                        onClick={() => {
+                          setActiveIndex(nextTabIndex);
+                          setJustLoggedSet(false);
+                        }}
+                        className="w-full rounded-xl bg-tungsten-500 py-3 font-semibold text-steel-950"
+                      >
+                        Next in superset: {nextExercise.name}
+                      </button>
+                    );
+                  })()}
                 <button
-                  key={d}
-                  onClick={() => setDifficulty(d)}
-                  className={`flex-1 rounded-lg py-1.5 text-xs capitalize ${
-                    difficulty === d
-                      ? "bg-copper-500 text-steel-950"
-                      : "border border-steel-600 text-chalk-300"
-                  }`}
+                  onClick={() => setJustLoggedSet(false)}
+                  className="w-full rounded-xl bg-copper-500 py-3 font-semibold text-steel-950"
                 >
-                  {d}
+                  Add another set
                 </button>
-              ))}
+                <button
+                  onClick={() => router.push("/")}
+                  className="w-full rounded-xl border border-steel-600 py-3 font-semibold text-chalk-300"
+                >
+                  Pick a muscle
+                </button>
+              </div>
             </div>
-            <button
-              onClick={logSet}
-              className="mt-3 w-full rounded-xl bg-copper-500 py-3 font-semibold text-steel-950"
-            >
-              Log set
-            </button>
-          </div>
+          ) : (
+            <div className="mt-4 rounded-xl border border-steel-700 bg-steel-900 p-4">
+              <div className="flex gap-3">
+                <label className="flex-1">
+                  <span className="font-mono text-xs text-chalk-500">Reps</span>
+                  <input
+                    type="number"
+                    value={reps}
+                    onChange={(e) => updateDraft({ reps: Number(e.target.value) })}
+                    className="mt-1 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
+                  />
+                </label>
+                <label className="flex-1">
+                  <span className="font-mono text-xs text-chalk-500">Weight ({"lb"})</span>
+                  <input
+                    type="number"
+                    value={weight}
+                    onChange={(e) => updateDraft({ weight: Number(e.target.value) })}
+                    className="mt-1 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
+                  />
+                </label>
+              </div>
+              <div className="mt-3 flex gap-2">
+                {(["easy", "moderate", "difficult", "failed"] as SetDifficulty[]).map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => updateDraft({ difficulty: d })}
+                    className={`flex-1 rounded-lg py-1.5 text-xs capitalize ${
+                      difficulty === d
+                        ? "bg-copper-500 text-steel-950"
+                        : "border border-steel-600 text-chalk-300"
+                    }`}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={logSet}
+                className="mt-3 w-full rounded-xl bg-copper-500 py-3 font-semibold text-steel-950"
+              >
+                Log set
+              </button>
+            </div>
+          )}
         </>
       )}
 
       {showTimer && activeExercise && (
-        <RestTimer
-          defaultSeconds={activeExercise.default_rest_seconds}
-          onDismiss={() => setShowTimer(false)}
-        />
+        <RestTimer key={restKey} defaultSeconds={restSeconds} onDismiss={() => setShowTimer(false)} />
       )}
     </main>
   );

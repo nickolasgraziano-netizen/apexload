@@ -31,6 +31,14 @@ export default async function DashboardPage() {
     .limit(1)
     .maybeSingle();
 
+  // Unfinished sessions (interrupted workouts) — resumable, and there can
+  // be more than one if the lifter bounced between muscle groups.
+  const { data: openSessions } = await supabase
+    .from("sessions")
+    .select("id, started_at, muscle_groups ( name )")
+    .is("ended_at", null)
+    .order("started_at", { ascending: false });
+
   const predicted = predictNextMuscleGroup(muscleGroups, lastSession as WorkoutSession | null);
 
   return (
@@ -42,12 +50,46 @@ export default async function DashboardPage() {
             Welcome back{user?.email ? `, ${user.email.split("@")[0]}` : ""}
           </h1>
         </div>
-        <Link href="/exercises" className="font-mono text-xs text-chalk-500 underline">
-          Catalog
-        </Link>
+        <div className="flex gap-4">
+          <Link href="/history" className="font-mono text-xs text-chalk-500 underline">
+            History
+          </Link>
+          <Link href="/exercises" className="font-mono text-xs text-chalk-500 underline">
+            Catalog
+          </Link>
+        </div>
       </header>
 
       <RotationWheel groups={muscleGroups} predictedGroupId={predicted?.id ?? ""} />
+
+      {/* Interrupted workouts — pick back up right where you left off */}
+      {openSessions && openSessions.length > 0 && (
+        <section className="mt-6 flex flex-col gap-2">
+          <h3 className="font-mono text-xs uppercase tracking-widest text-tungsten-400">
+            Resume workout
+          </h3>
+          {openSessions.map((s: any) => (
+            <Link
+              key={s.id}
+              href={`/workout/${s.id}`}
+              className="flex items-center justify-between rounded-xl border border-tungsten-500 bg-tungsten-600/10 px-4 py-3"
+            >
+              <div>
+                <p className="text-chalk-100">{s.muscle_groups?.name ?? "Workout"}</p>
+                <p className="mt-0.5 font-mono text-xs text-chalk-500">
+                  Started{" "}
+                  {new Date(s.started_at).toLocaleDateString(undefined, {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </p>
+              </div>
+              <span className="font-mono text-xs text-tungsten-400">Continue →</span>
+            </Link>
+          ))}
+        </section>
+      )}
 
       {/* Predicted workout highlight card */}
       <section className="mt-8 rounded-2xl border border-steel-700 bg-steel-900 p-5">

@@ -94,6 +94,11 @@ export default function SetRow({ set, onUpdate, onDelete }: Props) {
           TUT
         </span>
       )}
+      {set.superset_group_id && (
+        <span className="rounded-md bg-copper-600/30 px-2 py-0.5 font-mono text-[10px] uppercase text-copper-400">
+          Superset{set.superset_cycle ? ` · R${set.superset_cycle}` : ""}
+        </span>
+      )}
     </button>
   );
 }

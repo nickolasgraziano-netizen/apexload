@@ -69,6 +69,22 @@ export interface LoggedSet {
   weight_unit: string;
   difficulty: SetDifficulty | null;
   logged_at: string;
+  superset_group_id: string | null;
+  superset_cycle: number | null;
+}
+
+// A rotating group of 2-3 exercises alternated between sets, with a short
+// rest between exercises and a longer rest after completing a full cycle.
+export interface SupersetGroup {
+  id: string;
+  session_id: string;
+  user_id: string;
+}
+
+export interface SupersetGroupExercise {
+  group_id: string;
+  exercise_id: string;
+  position: number;
 }
 
 // Convenience shape used across the dashboard/workout screens: a muscle
