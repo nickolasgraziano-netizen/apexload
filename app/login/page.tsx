@@ -1,0 +1,86 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+
+export default function LoginPage() {
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    const supabase = createClient();
+
+    const { error: authError } =
+      mode === "signin"
+        ? await supabase.auth.signInWithPassword({ email, password })
+        : await supabase.auth.signUp({ email, password });
+
+    setLoading(false);
+    if (authError) {
+      setError(authError.message);
+      return;
+    }
+    router.push("/");
+    router.refresh();
+  }
+
+  return (
+    <main className="flex min-h-screen flex-col justify-center px-6">
+      <p className="font-mono text-xs uppercase tracking-widest text-copper-500">ApexLoad</p>
+      <h1 className="mt-1 font-display text-3xl font-extrabold text-chalk-100">
+        {mode === "signin" ? "Welcome back" : "Create your account"}
+      </h1>
+
+      <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
+        <label className="flex flex-col gap-1">
+          <span className="font-mono text-xs uppercase tracking-widest text-chalk-500">Email</span>
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="font-mono text-xs uppercase tracking-widest text-chalk-500">
+            Password
+          </span>
+          <input
+            type="password"
+            required
+            minLength={6}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
+          />
+        </label>
+
+        {error && <p className="text-sm text-copper-400">{error}</p>}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="mt-2 rounded-xl bg-copper-500 px-4 py-3 font-semibold text-steel-950 active:bg-copper-600 disabled:opacity-50"
+        >
+          {loading ? "Working…" : mode === "signin" ? "Sign in" : "Sign up"}
+        </button>
+      </form>
+
+      <button
+        onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+        className="mt-6 text-center font-mono text-sm text-chalk-500"
+      >
+        {mode === "signin" ? "Need an account? Sign up" : "Have an account? Sign in"}
+      </button>
+    </main>
+  );
+}
