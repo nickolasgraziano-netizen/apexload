@@ -6,8 +6,10 @@ import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -15,13 +17,19 @@ export default function LoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (mode === "signup" && password !== confirmPassword) {
+      setError("Passwords don't match.");
+      return;
+    }
+
     setLoading(true);
     const supabase = createClient();
 
     const { error: authError } =
       mode === "signin"
         ? await supabase.auth.signInWithPassword({ email, password })
-        : await supabase.auth.signUp({ email, password });
+        : await supabase.auth.signUp({ email, password, options: { data: { full_name: name } } });
 
     setLoading(false);
     if (authError) {
@@ -40,6 +48,18 @@ export default function LoginPage() {
       </h1>
 
       <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
+        {mode === "signup" && (
+          <label className="flex flex-col gap-1">
+            <span className="font-mono text-xs uppercase tracking-widest text-chalk-500">Name</span>
+            <input
+              type="text"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
+            />
+          </label>
+        )}
         <label className="flex flex-col gap-1">
           <span className="font-mono text-xs uppercase tracking-widest text-chalk-500">Email</span>
           <input
@@ -63,6 +83,21 @@ export default function LoginPage() {
             className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
           />
         </label>
+        {mode === "signup" && (
+          <label className="flex flex-col gap-1">
+            <span className="font-mono text-xs uppercase tracking-widest text-chalk-500">
+              Confirm password
+            </span>
+            <input
+              type="password"
+              required
+              minLength={6}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
+            />
+          </label>
+        )}
 
         {error && <p className="text-sm text-copper-400">{error}</p>}
 
@@ -76,7 +111,11 @@ export default function LoginPage() {
       </form>
 
       <button
-        onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+        onClick={() => {
+          setMode(mode === "signin" ? "signup" : "signin");
+          setError(null);
+          setConfirmPassword("");
+        }}
         className="mt-6 text-center font-mono text-sm text-chalk-500"
       >
         {mode === "signin" ? "Need an account? Sign up" : "Have an account? Sign in"}

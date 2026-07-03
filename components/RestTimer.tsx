@@ -5,6 +5,7 @@ import { computeTimerEndTimestamp, playRestCompleteChime, secondsRemaining } fro
 
 interface Props {
   defaultSeconds?: number;
+  message?: string;
   onDismiss: () => void;
 }
 
@@ -18,7 +19,7 @@ interface Props {
  * the tab is backgrounded isn't achievable from the web platform, so this
  * assumes the phone stays unlocked and the app stays in view during a set.
  */
-export default function RestTimer({ defaultSeconds = 90, onDismiss }: Props) {
+export default function RestTimer({ defaultSeconds = 90, message, onDismiss }: Props) {
   const [endAt, setEndAt] = useState(() => computeTimerEndTimestamp(defaultSeconds));
   const [remaining, setRemaining] = useState(defaultSeconds);
   const chimedRef = useRef(false);
@@ -73,6 +74,7 @@ export default function RestTimer({ defaultSeconds = 90, onDismiss }: Props) {
           </button>
         </div>
       </div>
+      {message && <p className="mt-3 text-sm text-tungsten-400">{message}</p>}
     </div>
   );
 }

@@ -1,6 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { predictNextMuscleGroup } from "@/lib/rotation";
+import { computeSessionsPerWeek, isoWeekStart } from "@/lib/metrics";
+import { buildMotivationalMessage, findLatestPR } from "@/lib/motivation";
 import RotationWheel from "@/components/RotationWheel";
+import LogoutButton from "@/components/LogoutButton";
+import Greeting from "@/components/Greeting";
 import type { OrderedMuscleGroup, WorkoutSession } from "@/lib/types";
 import Link from "next/link";
 
@@ -9,6 +13,10 @@ export default async function DashboardPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  const { data: profile } = user
+    ? await supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle()
+    : { data: null };
 
   // Join the user's personal rotation order onto the global muscle group
   // taxonomy — one query, sorted the way this user has arranged their split.
@@ -41,22 +49,58 @@ export default async function DashboardPage() {
 
   const predicted = predictNextMuscleGroup(muscleGroups, lastSession as WorkoutSession | null);
 
+  // Motivational message: prefers a just-hit PR, then this week's
+  // consistency against the rotation's target, then generic encouragement.
+  const { data: allSessionsForWeek } = await supabase
+    .from("sessions")
+    .select("started_at, ended_at")
+    .order("started_at", { ascending: false })
+    .limit(200);
+  const { data: recentSetRows } = await supabase
+    .from("sets")
+    .select("weight, logged_at, exercise_id, exercises ( name )")
+    .not("weight", "is", null)
+    .order("logged_at", { ascending: false })
+    .limit(500);
+
+  const prCandidates = (recentSetRows ?? [])
+    .filter((s: any) => s.exercises?.name)
+    .map((s: any) => ({
+      exerciseId: s.exercise_id,
+      exerciseName: s.exercises.name,
+      weight: s.weight,
+      loggedAt: s.logged_at,
+    }));
+  const latestPR = findLatestPR(prCandidates);
+
+  const weeklyCounts = computeSessionsPerWeek(allSessionsForWeek ?? []);
+  const currentWeek = isoWeekStart(new Date());
+  const sessionsThisWeek = weeklyCounts.find((w) => w.weekStart === currentWeek)?.count ?? 0;
+
+  const message = buildMotivationalMessage({
+    latestPR,
+    sessionsThisWeek,
+    targetPerWeek: muscleGroups.length || undefined,
+    seed: (allSessionsForWeek ?? []).length,
+  });
+
   return (
     <main className="min-h-screen px-5 pb-24 pt-8">
-      <header className="mb-8 flex items-center justify-between">
-        <div>
-          <p className="font-mono text-xs uppercase tracking-widest text-copper-500">ApexLoad</p>
-          <h1 className="font-display text-2xl font-bold text-chalk-100">
-            Welcome back{user?.email ? `, ${user.email.split("@")[0]}` : ""}
-          </h1>
+      <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          {user && <Greeting userId={user.id} displayName={profile?.display_name ?? null} message={message} />}
         </div>
-        <div className="flex gap-4">
+        <div className="flex flex-wrap justify-end gap-x-4 gap-y-1">
+          <Link href="/progress" className="font-mono text-xs text-chalk-500 underline">
+            Progress
+          </Link>
           <Link href="/history" className="font-mono text-xs text-chalk-500 underline">
             History
           </Link>
           <Link href="/exercises" className="font-mono text-xs text-chalk-500 underline">
             Catalog
           </Link>
+          <LogoutButton />
         </div>
       </header>
 
