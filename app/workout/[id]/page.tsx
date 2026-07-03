@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { suggestNextWeight } from "@/lib/suggestions";
+import { buildMotivationalMessage } from "@/lib/motivation";
 import RestTimer from "@/components/RestTimer";
 import SetRow from "@/components/SetRow";
 import type { Exercise, LoggedSet, TrainingVariant, WorkoutSession, SetDifficulty } from "@/lib/types";
@@ -44,6 +45,7 @@ export default function ActiveWorkoutPage() {
   const [restKey, setRestKey] = useState(0); // bump to force a fresh countdown, even mid-rest
   const [elapsedSec, setElapsedSec] = useState(0);
   const [justLoggedSet, setJustLoggedSet] = useState(false);
+  const [motivationMessage, setMotivationMessage] = useState("");
 
   const [showPicker, setShowPicker] = useState(false);
   const [catalog, setCatalog] = useState<(Exercise & { muscle_groups: { name: string } | null })[]>([]);
@@ -237,6 +239,16 @@ export default function ActiveWorkoutPage() {
       .single();
 
     if (newSet) setSessionSets((prev) => [...prev, newSet as LoggedSet]);
+
+    const priorMax = Math.max(0, ...allSets.map((s) => s.weight ?? 0));
+    const isPR = weight > priorMax;
+    setMotivationMessage(
+      buildMotivationalMessage({
+        latestPR: isPR ? { exerciseName: activeExercise.name, weight } : null,
+        seed: sessionSets.length + reps,
+      })
+    );
+
     setRestSeconds(rest);
     setShowTimer(true);
     setRestKey((k) => k + 1);
@@ -617,7 +629,12 @@ export default function ActiveWorkoutPage() {
       )}
 
       {showTimer && activeExercise && (
-        <RestTimer key={restKey} defaultSeconds={restSeconds} onDismiss={() => setShowTimer(false)} />
+        <RestTimer
+          key={restKey}
+          defaultSeconds={restSeconds}
+          message={motivationMessage}
+          onDismiss={() => setShowTimer(false)}
+        />
       )}
     </main>
   );
