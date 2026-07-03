@@ -50,10 +50,27 @@ export interface MachinePhoto {
 export interface WorkoutSession {
   id: string;
   user_id: string;
-  muscle_group_id: string;
+  muscle_group_id: string | null; // null when launched from a (muscle-group-agnostic) template
+  template_id: string | null;
   started_at: string;
   ended_at: string | null;
   time_budget_minutes: number | null;
+}
+
+// A saved, reusable exercise list (optionally with superset pairings) a
+// user can relaunch as a new session. Deliberately not tied to a single
+// muscle group, since a template can span the whole body.
+export interface WorkoutTemplate {
+  id: string;
+  user_id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface WorkoutTemplateExercise {
+  template_id: string;
+  exercise_id: string;
+  position: number;
 }
 
 export interface LoggedSet {

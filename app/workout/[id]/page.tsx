@@ -51,6 +51,11 @@ export default function ActiveWorkoutPage() {
   const [catalog, setCatalog] = useState<(Exercise & { muscle_groups: { name: string } | null })[]>([]);
   const [pickerQuery, setPickerQuery] = useState("");
 
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [templateSaved, setTemplateSaved] = useState(false);
+
   // Supersets: 2-3 exercise tabs rotated between sets. Grouping can be
   // created here on the fly (select tabs) or arrive pre-made from workout/new.
   const [supersetGroups, setSupersetGroups] = useState<SupersetGroupView[]>([]);
@@ -131,7 +136,8 @@ export default function ActiveWorkoutPage() {
       );
 
       // Previous week: most recent PRIOR session for this same muscle group.
-      if (sess) {
+      // Skipped for template-launched sessions, which have no single group.
+      if (sess && sess.muscle_group_id) {
         const { data: prevSession } = await supabase
           .from("sessions")
           .select("*")
@@ -273,6 +279,51 @@ export default function ActiveWorkoutPage() {
     router.push("/");
   }
 
+  async function saveAsTemplate() {
+    if (!userId || plannedExercises.length === 0 || !templateName.trim()) return;
+    setSavingTemplate(true);
+    const supabase = createClient();
+
+    const { data: template } = await supabase
+      .from("workout_templates")
+      .insert({ user_id: userId, name: templateName.trim() })
+      .select()
+      .single();
+    if (!template) {
+      setSavingTemplate(false);
+      return;
+    }
+
+    await supabase.from("workout_template_exercises").insert(
+      plannedExercises.map((ex, position) => ({
+        template_id: template.id,
+        exercise_id: ex.id,
+        position,
+      }))
+    );
+
+    for (const group of supersetGroups) {
+      const { data: templateGroup } = await supabase
+        .from("workout_template_superset_groups")
+        .insert({ template_id: template.id })
+        .select()
+        .single();
+      if (!templateGroup) continue;
+      await supabase.from("workout_template_superset_group_exercises").insert(
+        group.exerciseIds.map((exerciseId, position) => ({
+          group_id: templateGroup.id,
+          exercise_id: exerciseId,
+          position,
+        }))
+      );
+    }
+
+    setSavingTemplate(false);
+    setShowSaveTemplate(false);
+    setTemplateName("");
+    setTemplateSaved(true);
+  }
+
   async function openPicker() {
     setShowPicker(true);
     if (catalog.length > 0) return;
@@ -344,10 +395,59 @@ export default function ActiveWorkoutPage() {
         <p className="font-mono text-xs uppercase tracking-widest text-chalk-500">
           {Math.floor(elapsedSec / 60)}:{String(elapsedSec % 60).padStart(2, "0")} elapsed
         </p>
-        <button onClick={endWorkout} className="font-mono text-xs text-copper-400">
-          End workout
-        </button>
+        <div className="flex items-center gap-3">
+          {plannedExercises.length > 0 && (
+            <button
+              onClick={() => setShowSaveTemplate(true)}
+              className="font-mono text-xs text-chalk-500 underline"
+            >
+              Save as template
+            </button>
+          )}
+          <button onClick={endWorkout} className="font-mono text-xs text-copper-400">
+            End workout
+          </button>
+        </div>
       </div>
+
+      {templateSaved && (
+        <div className="mt-3 rounded-xl border border-tungsten-500 bg-tungsten-600/10 px-4 py-3">
+          <p className="text-sm text-tungsten-400">Saved as a template — find it on Home next time.</p>
+        </div>
+      )}
+
+      {showSaveTemplate && (
+        <div className="mt-3 rounded-xl border border-steel-700 bg-steel-900 p-4">
+          <p className="font-mono text-xs uppercase tracking-widest text-chalk-500">
+            Name this template
+          </p>
+          <input
+            autoFocus
+            value={templateName}
+            onChange={(e) => setTemplateName(e.target.value)}
+            placeholder="e.g. Push Day"
+            className="mt-2 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100 outline-none focus:border-copper-500"
+          />
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={saveAsTemplate}
+              disabled={savingTemplate || !templateName.trim()}
+              className="rounded-lg bg-copper-500 px-3 py-1.5 text-xs font-semibold text-steel-950 disabled:opacity-50"
+            >
+              {savingTemplate ? "Saving…" : "Save"}
+            </button>
+            <button
+              onClick={() => {
+                setShowSaveTemplate(false);
+                setTemplateName("");
+              }}
+              className="rounded-lg border border-steel-600 px-3 py-1.5 text-xs text-chalk-300"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {plannedExercises.length > 0 && (
         <div className="relative mt-3">

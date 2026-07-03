@@ -21,7 +21,7 @@ export default function HistoryPage() {
     const supabase = createClient();
     const { data: sessions } = await supabase
       .from("sessions")
-      .select("id, started_at, ended_at, muscle_groups ( name )")
+      .select("id, started_at, ended_at, muscle_groups ( name ), workout_templates ( name )")
       .order("started_at", { ascending: false });
 
     const sessionIds = (sessions ?? []).map((s: any) => s.id);
@@ -37,7 +37,7 @@ export default function HistoryPage() {
     setDays(
       (sessions ?? []).map((s: any) => ({
         sessionId: s.id,
-        muscleGroupName: s.muscle_groups?.name ?? "Unknown",
+        muscleGroupName: s.muscle_groups?.name ?? s.workout_templates?.name ?? "Custom workout",
         startedAt: s.started_at,
         endedAt: s.ended_at,
         setCount: setCounts.get(s.id) ?? 0,
