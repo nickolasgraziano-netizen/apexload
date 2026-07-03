@@ -12,6 +12,7 @@ function sessionFor(muscleGroupId: string): WorkoutSession {
     id: "session-1",
     user_id: "user-1",
     muscle_group_id: muscleGroupId,
+    template_id: null,
     started_at: "2026-01-01T00:00:00.000Z",
     ended_at: "2026-01-01T01:00:00.000Z",
     time_budget_minutes: null,

@@ -5,7 +5,8 @@ import { buildMotivationalMessage, findLatestPR } from "@/lib/motivation";
 import RotationWheel from "@/components/RotationWheel";
 import LogoutButton from "@/components/LogoutButton";
 import Greeting from "@/components/Greeting";
-import type { OrderedMuscleGroup, WorkoutSession } from "@/lib/types";
+import TemplateList from "@/components/TemplateList";
+import type { OrderedMuscleGroup, WorkoutSession, WorkoutTemplate } from "@/lib/types";
 import Link from "next/link";
 
 export default async function DashboardPage() {
@@ -31,21 +32,30 @@ export default async function DashboardPage() {
     sort_order: r.sort_order,
   }));
 
+  // Template-launched sessions have no muscle_group_id — they're a
+  // separate track from the rotation, so they're excluded here.
   const { data: lastSession } = await supabase
     .from("sessions")
     .select("*")
     .not("ended_at", "is", null)
+    .not("muscle_group_id", "is", null)
     .order("ended_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
   // Unfinished sessions (interrupted workouts) — resumable, and there can
-  // be more than one if the lifter bounced between muscle groups.
+  // be more than one if the lifter bounced between muscle groups (or
+  // started a template, which shows its own name instead of a group).
   const { data: openSessions } = await supabase
     .from("sessions")
-    .select("id, started_at, muscle_groups ( name )")
+    .select("id, started_at, muscle_groups ( name ), workout_templates ( name )")
     .is("ended_at", null)
     .order("started_at", { ascending: false });
+
+  const { data: templates } = await supabase
+    .from("workout_templates")
+    .select("*")
+    .order("created_at", { ascending: false });
 
   const predicted = predictNextMuscleGroup(muscleGroups, lastSession as WorkoutSession | null);
 
@@ -119,7 +129,9 @@ export default async function DashboardPage() {
               className="flex items-center justify-between rounded-xl border border-tungsten-500 bg-tungsten-600/10 px-4 py-3"
             >
               <div>
-                <p className="text-chalk-100">{s.muscle_groups?.name ?? "Workout"}</p>
+                <p className="text-chalk-100">
+                  {s.muscle_groups?.name ?? s.workout_templates?.name ?? "Workout"}
+                </p>
                 <p className="mt-0.5 font-mono text-xs text-chalk-500">
                   Started{" "}
                   {new Date(s.started_at).toLocaleDateString(undefined, {
@@ -134,6 +146,8 @@ export default async function DashboardPage() {
           ))}
         </section>
       )}
+
+      {user && <TemplateList templates={(templates ?? []) as WorkoutTemplate[]} userId={user.id} />}
 
       {/* Predicted workout highlight card */}
       <section className="mt-8 rounded-2xl border border-steel-700 bg-steel-900 p-5">

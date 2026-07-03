@@ -91,13 +91,15 @@ export interface MuscleGroupFreshness {
  * from a completed session. Surfaces neglected groups at a glance.
  */
 export function computeMuscleGroupFreshness(
-  sessions: { muscle_group_id: string; started_at: string; ended_at: string | null }[],
+  sessions: { muscle_group_id: string | null; started_at: string; ended_at: string | null }[],
   muscleGroupIds: string[],
   now: Date = new Date()
 ): MuscleGroupFreshness[] {
   const lastTrained = new Map<string, number>();
   for (const s of sessions) {
-    if (!s.ended_at) continue;
+    // Template-launched sessions have no single muscle group — skip them,
+    // consistent with templates sitting outside the rotation system.
+    if (!s.ended_at || !s.muscle_group_id) continue;
     const t = new Date(s.started_at).getTime();
     const current = lastTrained.get(s.muscle_group_id);
     if (current == null || t > current) lastTrained.set(s.muscle_group_id, t);
