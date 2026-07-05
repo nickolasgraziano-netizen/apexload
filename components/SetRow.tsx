@@ -89,6 +89,11 @@ export default function SetRow({ set, onUpdate, onDelete }: Props) {
       <span className="font-body text-chalk-100">
         {set.actual_reps ?? "—"} reps @ {set.weight ?? "—"} {set.weight_unit}
       </span>
+      {set.side && (
+        <span className="rounded-md bg-steel-700 px-2 py-0.5 font-mono text-[10px] uppercase text-chalk-300">
+          {set.side === "left" ? "L" : "R"}
+        </span>
+      )}
       {set.training_variant === "tut" && (
         <span className="rounded-md bg-tungsten-600/30 px-2 py-0.5 font-mono text-[10px] uppercase text-tungsten-400">
           TUT

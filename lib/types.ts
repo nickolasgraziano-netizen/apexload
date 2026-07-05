@@ -1,5 +1,6 @@
 export type TrainingVariant = "standard" | "tut";
 export type SetDifficulty = "easy" | "moderate" | "difficult" | "failed";
+export type SetSide = "left" | "right";
 
 // Global taxonomy — shared across all users, not user-owned.
 export interface MuscleGroup {
@@ -30,6 +31,7 @@ export interface Exercise {
   sub_muscle_id: string | null;
   name: string;
   is_custom: boolean;
+  is_unilateral: boolean; // trained one side at a time, e.g. single-arm pulldown
   default_rest_seconds: number;
 }
 
@@ -52,6 +54,7 @@ export interface WorkoutSession {
   user_id: string;
   muscle_group_id: string | null; // null when launched from a (muscle-group-agnostic) template
   template_id: string | null;
+  name: string | null; // custom user-given name, overrides the muscle group/template display name
   started_at: string;
   ended_at: string | null;
   time_budget_minutes: number | null;
@@ -88,6 +91,7 @@ export interface LoggedSet {
   logged_at: string;
   superset_group_id: string | null;
   superset_cycle: number | null;
+  side: SetSide | null;
 }
 
 // A rotating group of 2-3 exercises alternated between sets, with a short

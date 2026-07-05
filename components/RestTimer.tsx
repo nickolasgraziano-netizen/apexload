@@ -61,10 +61,18 @@ export default function RestTimer({ defaultSeconds = 90, message, onDismiss }: P
         </div>
         <div className="flex gap-2">
           <button
-            onClick={() => addSeconds(30)}
+            onClick={() => addSeconds(-15)}
             className="rounded-lg border border-steel-600 px-3 py-2 font-mono text-sm text-chalk-300"
+            aria-label="Subtract 15 seconds"
           >
-            +30s
+            -15s
+          </button>
+          <button
+            onClick={() => addSeconds(15)}
+            className="rounded-lg border border-steel-600 px-3 py-2 font-mono text-sm text-chalk-300"
+            aria-label="Add 15 seconds"
+          >
+            +15s
           </button>
           <button
             onClick={onDismiss}
