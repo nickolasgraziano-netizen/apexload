@@ -51,7 +51,7 @@ export async function POST(request: Request) {
   try {
     message = await anthropic.messages.create({
       model: "claude-sonnet-5",
-      max_tokens: 2048,
+      max_tokens: 8192,
       system: EXTRACTION_SYSTEM_PROMPT,
       messages: [
         {
@@ -76,6 +76,13 @@ export async function POST(request: Request) {
   const textBlock = message.content.find((b) => b.type === "text");
   if (!textBlock || textBlock.type !== "text") {
     return NextResponse.json({ error: "No readable response from the model." }, { status: 502 });
+  }
+
+  if (message.stop_reason === "max_tokens") {
+    return NextResponse.json(
+      { error: "That page has too much on it to read in one pass. Try photographing just part of it, or enter it manually." },
+      { status: 502 }
+    );
   }
 
   let parsed;
