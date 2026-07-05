@@ -96,9 +96,9 @@ export default function ExerciseProgressExplorer({ exercises }: { exercises: Exe
             <Line
               type="monotone"
               dataKey="weight"
-              stroke="#3FB8A8"
+              stroke="#E34234"
               strokeWidth={2}
-              dot={{ r: 3, fill: "#3FB8A8" }}
+              dot={{ r: 3, fill: "#E34234" }}
             />
           </LineChart>
         </ResponsiveContainer>

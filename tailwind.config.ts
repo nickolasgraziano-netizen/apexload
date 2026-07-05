@@ -1,9 +1,12 @@
 import type { Config } from "tailwindcss";
 
-// ApexLoad design tokens — "Iron & Chalk"
-// Background: oxidized steel near-black. Accent: heated-copper for primary
-// actions/standard sets. Cool tungsten-teal for TUT (time under tension) —
+// ApexLoad design tokens — "Dragon & Chalk" (Bruce Lee inspired)
+// Background: near-black, like the stripe on his Game of Death tracksuit.
+// Accent: bold tracksuit-yellow for primary actions/standard sets.
+// Vermilion (Chinese lacquer red) for TUT (time under tension) —
 // visually distinct so the two training modes never blur together.
+// Token names (copper/tungsten) are unchanged from the prior theme —
+// only the values moved — so no className changes were needed anywhere.
 const config: Config = {
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
   theme: {
@@ -23,16 +26,18 @@ const config: Config = {
           300: "#D8D4CA",
           500: "#A9A497",
         },
+        // Bruce Lee tracksuit yellow.
         copper: {
-          400: "#FF9868",
-          500: "#FF7A45",
-          600: "#E0602E",
-          700: "#B84A20",
+          400: "#FFE066",
+          500: "#FFD400",
+          600: "#E6BE00",
+          700: "#C9A400",
         },
+        // Vermilion — classic Chinese lacquer red.
         tungsten: {
-          400: "#6FD6C8",
-          500: "#3FB8A8",
-          600: "#2C9384",
+          400: "#FF6B57",
+          500: "#E34234",
+          600: "#C4341F",
         },
       },
       fontFamily: {
