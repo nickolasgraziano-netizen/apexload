@@ -63,6 +63,7 @@ export interface WorkoutSession {
   ended_at: string | null;
   time_budget_minutes: number | null;
   notes: string | null;
+  dismissed_at: string | null; // manually hidden from Home while still unfinished
 }
 
 // A saved, reusable exercise list (optionally with superset pairings) a
@@ -100,6 +101,7 @@ export interface LoggedSet {
   side: SetSide | null;
   duration_seconds: number | null; // cardio: session length, in place of reps/weight
   notes: string | null; // cardio: intensity/style (incline, resistance, etc.)
+  calories: number | null; // cardio: calories burned
 }
 
 // A rotating group of 2-3 exercises alternated between sets, with a short

@@ -78,6 +78,7 @@ export default function ActiveWorkoutPage() {
   // duration + intensity-notes entry per session instead of sets.
   const [cardioDurationMinutes, setCardioDurationMinutes] = useState("");
   const [cardioNotes, setCardioNotes] = useState("");
+  const [cardioCalories, setCardioCalories] = useState("");
   const [cardioEditing, setCardioEditing] = useState(false);
 
   // Exercises the lifter skipped this session (e.g. machine unavailable) —
@@ -299,10 +300,12 @@ export default function ActiveWorkoutPage() {
         cardioEntry.duration_seconds != null ? String(Math.round(cardioEntry.duration_seconds / 60)) : ""
       );
       setCardioNotes(cardioEntry.notes ?? "");
+      setCardioCalories(cardioEntry.calories != null ? String(cardioEntry.calories) : "");
       setCardioEditing(false);
     } else {
       setCardioDurationMinutes("");
       setCardioNotes("");
+      setCardioCalories("");
       setCardioEditing(true);
     }
   }, [activeExercise?.id, cardioEntry?.id]);
@@ -313,15 +316,19 @@ export default function ActiveWorkoutPage() {
     const minutes = Number(cardioDurationMinutes);
     const durationSeconds = Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes * 60) : null;
     const trimmedNotes = cardioNotes.trim() || null;
+    const calories = Number(cardioCalories);
+    const caloriesValue = Number.isFinite(calories) && calories > 0 ? Math.round(calories) : null;
 
     if (cardioEntry) {
       await supabase
         .from("sets")
-        .update({ duration_seconds: durationSeconds, notes: trimmedNotes })
+        .update({ duration_seconds: durationSeconds, notes: trimmedNotes, calories: caloriesValue })
         .eq("id", cardioEntry.id);
       setSessionSets((prev) =>
         prev.map((s) =>
-          s.id === cardioEntry.id ? { ...s, duration_seconds: durationSeconds, notes: trimmedNotes } : s
+          s.id === cardioEntry.id
+            ? { ...s, duration_seconds: durationSeconds, notes: trimmedNotes, calories: caloriesValue }
+            : s
         )
       );
     } else {
@@ -339,6 +346,7 @@ export default function ActiveWorkoutPage() {
           difficulty: null,
           duration_seconds: durationSeconds,
           notes: trimmedNotes,
+          calories: caloriesValue,
         })
         .select()
         .single();
@@ -888,6 +896,17 @@ export default function ActiveWorkoutPage() {
                   </label>
                   <label className="mt-3 flex flex-col gap-1">
                     <span className="font-mono text-xs text-chalk-500">
+                      Calories burned (optional)
+                    </span>
+                    <input
+                      type="number"
+                      value={cardioCalories}
+                      onChange={(e) => setCardioCalories(e.target.value)}
+                      className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
+                    />
+                  </label>
+                  <label className="mt-3 flex flex-col gap-1">
+                    <span className="font-mono text-xs text-chalk-500">
                       Notes (intensity, incline, etc.)
                     </span>
                     <textarea
@@ -918,6 +937,7 @@ export default function ActiveWorkoutPage() {
                 <>
                   <p className="text-chalk-100">
                     {Math.round((cardioEntry?.duration_seconds ?? 0) / 60)} min
+                    {cardioEntry?.calories != null && ` · ${cardioEntry.calories} cal`}
                   </p>
                   {cardioEntry?.notes && (
                     <p className="mt-1 text-sm text-chalk-300">{cardioEntry.notes}</p>

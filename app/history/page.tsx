@@ -15,6 +15,17 @@ interface HistoryDay {
   setCount: number;
 }
 
+// Unfinished sessions fall off Home automatically (or get removed
+// manually), but stay resumable from here for a few days before an
+// abandoned session is just treated as history.
+const RESUME_WINDOW_DAYS = 3;
+
+function canResume(d: HistoryDay): boolean {
+  if (d.endedAt) return false;
+  const ageMs = Date.now() - new Date(d.startedAt).getTime();
+  return ageMs < RESUME_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+}
+
 interface ExerciseDetail {
   exerciseName: string;
   sets: {
@@ -24,6 +35,7 @@ interface ExerciseDetail {
     side: string | null;
     durationSeconds: number | null;
     setNotes: string | null;
+    calories: number | null;
   }[];
 }
 
@@ -85,7 +97,7 @@ export default function HistoryPage() {
     const { data: setRows } = await supabase
       .from("sets")
       .select(
-        "actual_reps, weight, training_variant, side, duration_seconds, notes, logged_at, exercises ( name )"
+        "actual_reps, weight, training_variant, side, duration_seconds, notes, calories, logged_at, exercises ( name )"
       )
       .eq("session_id", sessionId)
       .order("logged_at");
@@ -105,6 +117,7 @@ export default function HistoryPage() {
         side: s.side,
         durationSeconds: s.duration_seconds,
         setNotes: s.notes,
+        calories: s.calories,
       });
     }
     setDetailsCache((prev) => ({ ...prev, [sessionId]: grouped }));
@@ -355,6 +368,7 @@ export default function HistoryPage() {
                                 className="rounded-md bg-steel-800 px-2 py-1 font-mono text-xs text-chalk-300"
                               >
                                 {Math.round(s.durationSeconds / 60)} min
+                                {s.calories != null && ` · ${s.calories} cal`}
                                 {s.setNotes && ` · ${s.setNotes}`}
                               </span>
                             ) : (
@@ -380,6 +394,14 @@ export default function HistoryPage() {
               )}
 
               <div className="mt-2 flex flex-wrap gap-2">
+                {canResume(d) && (
+                  <Link
+                    href={`/workout/${d.sessionId}`}
+                    className="rounded-lg bg-tungsten-500 px-3 py-1.5 text-xs font-semibold text-steel-950"
+                  >
+                    Resume
+                  </Link>
+                )}
                 <Link
                   href={`/workout/edit/${d.sessionId}`}
                   className="rounded-lg border border-steel-600 px-3 py-1.5 text-xs text-chalk-300"

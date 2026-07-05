@@ -36,6 +36,7 @@ function sessionFor(muscleGroupId: string): WorkoutSession {
     ended_at: "2026-01-01T01:00:00.000Z",
     time_budget_minutes: null,
     notes: null,
+    dismissed_at: null,
   };
 }
 

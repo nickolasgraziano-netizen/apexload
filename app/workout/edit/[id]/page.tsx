@@ -19,6 +19,7 @@ interface ExerciseEntry {
   sets: SetEntry[];
   cardioDurationMinutes: string;
   cardioNotes: string;
+  cardioCalories: string;
 }
 
 const DEFAULT_SET: SetEntry = {
@@ -90,13 +91,20 @@ export default function EditWorkoutPage() {
         if (!entry) {
           const exercise = exerciseCatalog.find((e) => e.id === s.exercise_id);
           if (!exercise) continue;
-          entry = { exercise, sets: [], cardioDurationMinutes: "", cardioNotes: "" };
+          entry = {
+            exercise,
+            sets: [],
+            cardioDurationMinutes: "",
+            cardioNotes: "",
+            cardioCalories: "",
+          };
           grouped.push(entry);
         }
         if (entry.exercise.is_cardio) {
           entry.cardioDurationMinutes =
             s.duration_seconds != null ? String(Math.round(s.duration_seconds / 60)) : "";
           entry.cardioNotes = s.notes ?? "";
+          entry.cardioCalories = s.calories != null ? String(s.calories) : "";
           continue;
         }
         entry.sets.push({
@@ -123,6 +131,7 @@ export default function EditWorkoutPage() {
               sets: ex.is_cardio ? [] : [{ ...DEFAULT_SET, side: ex.is_unilateral ? "right" : null }],
               cardioDurationMinutes: "",
               cardioNotes: "",
+              cardioCalories: "",
             },
           ]
     );
@@ -130,7 +139,10 @@ export default function EditWorkoutPage() {
     setPickerQuery("");
   }
 
-  function updateCardioEntry(exerciseId: string, patch: Partial<Pick<ExerciseEntry, "cardioDurationMinutes" | "cardioNotes">>) {
+  function updateCardioEntry(
+    exerciseId: string,
+    patch: Partial<Pick<ExerciseEntry, "cardioDurationMinutes" | "cardioNotes" | "cardioCalories">>
+  ) {
     setEntries((prev) =>
       prev.map((e) => (e.exercise.id === exerciseId ? { ...e, ...patch } : e))
     );
@@ -233,6 +245,7 @@ export default function EditWorkoutPage() {
       side: SetSide | null;
       duration_seconds: number | null;
       notes: string | null;
+      calories: number | null;
       logged_at: string;
     }[] = [];
     for (const entry of entries) {
@@ -240,6 +253,8 @@ export default function EditWorkoutPage() {
         minuteOffset += 1;
         const minutes = Number(entry.cardioDurationMinutes);
         const durationSeconds = Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes * 60) : null;
+        const calories = Number(entry.cardioCalories);
+        const caloriesValue = Number.isFinite(calories) && calories > 0 ? Math.round(calories) : null;
         rows.push({
           session_id: sessionId,
           user_id: user.id,
@@ -253,6 +268,7 @@ export default function EditWorkoutPage() {
           side: null,
           duration_seconds: durationSeconds,
           notes: entry.cardioNotes.trim() || null,
+          calories: caloriesValue,
           logged_at: new Date(startedAt.getTime() + minuteOffset * 60 * 1000).toISOString(),
         });
         continue;
@@ -273,6 +289,7 @@ export default function EditWorkoutPage() {
           side: s.side,
           duration_seconds: null,
           notes: null,
+          calories: null,
           logged_at: new Date(startedAt.getTime() + minuteOffset * 60 * 1000).toISOString(),
         });
       });
@@ -355,6 +372,17 @@ export default function EditWorkoutPage() {
                     value={entry.cardioDurationMinutes}
                     onChange={(e) =>
                       updateCardioEntry(entry.exercise.id, { cardioDurationMinutes: e.target.value })
+                    }
+                    className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="font-mono text-xs text-chalk-500">Calories burned (optional)</span>
+                  <input
+                    type="number"
+                    value={entry.cardioCalories}
+                    onChange={(e) =>
+                      updateCardioEntry(entry.exercise.id, { cardioCalories: e.target.value })
                     }
                     className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
                   />

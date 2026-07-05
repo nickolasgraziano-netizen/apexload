@@ -6,6 +6,7 @@ import RotationWheel from "@/components/RotationWheel";
 import LogoutButton from "@/components/LogoutButton";
 import Greeting from "@/components/Greeting";
 import TemplateList from "@/components/TemplateList";
+import DismissSessionButton from "@/components/DismissSessionButton";
 import type { OrderedMuscleGroup, WorkoutSession, WorkoutTemplate } from "@/lib/types";
 import Link from "next/link";
 
@@ -48,10 +49,17 @@ export default async function DashboardPage() {
   // Unfinished sessions (interrupted workouts) — resumable, and there can
   // be more than one if the lifter bounced between muscle groups (or
   // started a template, which shows its own name instead of a group).
+  // Only today's — older ones fall off Home automatically (still
+  // resumable from History for a few days) — and never ones the lifter
+  // manually removed from this list.
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
   const { data: openSessions } = await supabase
     .from("sessions")
     .select("id, started_at, muscle_groups ( name ), workout_templates ( name )")
     .is("ended_at", null)
+    .is("dismissed_at", null)
+    .gte("started_at", startOfToday.toISOString())
     .order("started_at", { ascending: false });
 
   const { data: templates } = await supabase
@@ -100,14 +108,23 @@ export default async function DashboardPage() {
     <main className="min-h-screen px-5 pb-24 pt-8">
       <header className="mb-8 flex flex-col gap-3">
         {user && <Greeting userId={user.id} displayName={profile?.display_name ?? null} message={message} />}
-        <div className="flex flex-wrap gap-x-4 gap-y-1">
-          <Link href="/progress" className="font-mono text-xs text-chalk-500 underline">
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/progress"
+            className="rounded-lg border border-steel-600 px-3 py-1.5 font-mono text-xs text-chalk-300"
+          >
             Progress
           </Link>
-          <Link href="/history" className="font-mono text-xs text-chalk-500 underline">
+          <Link
+            href="/history"
+            className="rounded-lg border border-steel-600 px-3 py-1.5 font-mono text-xs text-chalk-300"
+          >
             History
           </Link>
-          <Link href="/exercises" className="font-mono text-xs text-chalk-500 underline">
+          <Link
+            href="/exercises"
+            className="rounded-lg border border-steel-600 px-3 py-1.5 font-mono text-xs text-chalk-300"
+          >
             Catalog
           </Link>
           <LogoutButton />
@@ -160,12 +177,11 @@ export default async function DashboardPage() {
             Resume workout
           </h3>
           {openSessions.map((s: any) => (
-            <Link
+            <div
               key={s.id}
-              href={`/workout/${s.id}`}
               className="flex items-center justify-between rounded-xl border border-tungsten-500 bg-tungsten-600/10 px-4 py-3"
             >
-              <div>
+              <Link href={`/workout/${s.id}`} className="flex-1">
                 <p className="text-chalk-100">
                   {s.muscle_groups?.name ?? s.workout_templates?.name ?? "Workout"}
                 </p>
@@ -177,9 +193,14 @@ export default async function DashboardPage() {
                     day: "numeric",
                   })}
                 </p>
+              </Link>
+              <div className="flex shrink-0 items-center gap-2">
+                <Link href={`/workout/${s.id}`} className="font-mono text-xs text-tungsten-400">
+                  Continue →
+                </Link>
+                <DismissSessionButton sessionId={s.id} />
               </div>
-              <span className="font-mono text-xs text-tungsten-400">Continue →</span>
-            </Link>
+            </div>
           ))}
         </section>
       )}
