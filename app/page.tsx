@@ -96,11 +96,9 @@ export default async function DashboardPage() {
 
   return (
     <main className="min-h-screen px-5 pb-24 pt-8">
-      <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          {user && <Greeting userId={user.id} displayName={profile?.display_name ?? null} message={message} />}
-        </div>
-        <div className="flex flex-wrap justify-end gap-x-4 gap-y-1">
+      <header className="mb-8 flex flex-col gap-3">
+        {user && <Greeting userId={user.id} displayName={profile?.display_name ?? null} message={message} />}
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
           <Link href="/progress" className="font-mono text-xs text-chalk-500 underline">
             Progress
           </Link>
@@ -114,7 +112,44 @@ export default async function DashboardPage() {
         </div>
       </header>
 
-      <RotationWheel groups={muscleGroups} predictedGroupId={predicted?.id ?? ""} />
+      <section className="flex flex-col gap-2">
+        <Link
+          href={`/workout/new?muscleGroupId=${predicted?.id ?? ""}`}
+          className="flex items-center justify-between rounded-xl border border-steel-700 bg-steel-900 px-4 py-3"
+        >
+          <div>
+            <p className="text-chalk-100">Start a new workout</p>
+            <p className="mt-0.5 text-xs text-chalk-500">
+              Today's suggestion: {predicted?.name ?? "—"}
+            </p>
+          </div>
+          <span className="font-mono text-xs text-copper-400">→</span>
+        </Link>
+        <Link
+          href="/history"
+          className="flex items-center justify-between rounded-xl border border-steel-700 bg-steel-900 px-4 py-3"
+        >
+          <div>
+            <p className="text-chalk-100">Repeat a past workout</p>
+            <p className="mt-0.5 text-xs text-chalk-500">Pick any day from your history</p>
+          </div>
+          <span className="font-mono text-xs text-copper-400">→</span>
+        </Link>
+        <Link
+          href="/workout/import"
+          className="flex items-center justify-between rounded-xl border border-steel-700 bg-steel-900 px-4 py-3"
+        >
+          <div>
+            <p className="text-chalk-100">Log past workouts</p>
+            <p className="mt-0.5 text-xs text-chalk-500">From your log book — by photo or typed in</p>
+          </div>
+          <span className="font-mono text-xs text-copper-400">→</span>
+        </Link>
+      </section>
+
+      <div className="mt-6">
+        <RotationWheel groups={muscleGroups} predictedGroupId={predicted?.id ?? ""} />
+      </div>
 
       {/* Interrupted workouts — pick back up right where you left off */}
       {openSessions && openSessions.length > 0 && (

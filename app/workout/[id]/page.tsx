@@ -7,13 +7,21 @@ import { suggestNextWeight } from "@/lib/suggestions";
 import { buildMotivationalMessage } from "@/lib/motivation";
 import RestTimer from "@/components/RestTimer";
 import SetRow from "@/components/SetRow";
-import type { Exercise, LoggedSet, TrainingVariant, WorkoutSession, SetDifficulty } from "@/lib/types";
+import type {
+  Exercise,
+  LoggedSet,
+  TrainingVariant,
+  WorkoutSession,
+  SetDifficulty,
+  SetSide,
+} from "@/lib/types";
 
 interface SetDraft {
   reps: number;
   weight: number;
   difficulty: SetDifficulty;
   variant: TrainingVariant;
+  side: SetSide;
 }
 
 interface SupersetGroupView {
@@ -21,7 +29,13 @@ interface SupersetGroupView {
   exerciseIds: string[]; // ordered by position
 }
 
-const DEFAULT_DRAFT: SetDraft = { reps: 15, weight: 0, difficulty: "moderate", variant: "standard" };
+const DEFAULT_DRAFT: SetDraft = {
+  reps: 15,
+  weight: 0,
+  difficulty: "moderate",
+  variant: "standard",
+  side: "right",
+};
 const SUPERSET_SHORT_REST = 30;
 const SUPERSET_LONG_REST = 60;
 
@@ -37,13 +51,13 @@ export default function ActiveWorkoutPage() {
   const [allSets, setAllSets] = useState<LoggedSet[]>([]); // history for suggestion engine
   const [sessionSets, setSessionSets] = useState<LoggedSet[]>([]); // this session only
   const [previousWeekSets, setPreviousWeekSets] = useState<LoggedSet[]>([]);
+  const [machinePhotoUrl, setMachinePhotoUrl] = useState<string | null>(null);
 
   // Per-exercise unsaved set drafts, so hopping between exercises never loses
   // what you were about to log — interrupted sets pick back up untouched.
   const [drafts, setDrafts] = useState<Record<string, SetDraft>>({});
   const [showTimer, setShowTimer] = useState(false);
   const [restKey, setRestKey] = useState(0); // bump to force a fresh countdown, even mid-rest
-  const [elapsedSec, setElapsedSec] = useState(0);
   const [justLoggedSet, setJustLoggedSet] = useState(false);
   const [motivationMessage, setMotivationMessage] = useState("");
 
@@ -69,7 +83,7 @@ export default function ActiveWorkoutPage() {
 
   const activeExercise = plannedExercises[activeIndex] as Exercise | undefined;
   const draft = (activeExercise && drafts[activeExercise.id]) || DEFAULT_DRAFT;
-  const { reps, weight, difficulty, variant } = draft;
+  const { reps, weight, difficulty, variant, side } = draft;
   const activeGroup = activeExercise
     ? supersetGroups.find((g) => g.exerciseIds.includes(activeExercise.id))
     : undefined;
@@ -158,14 +172,6 @@ export default function ActiveWorkoutPage() {
     })();
   }, [sessionId]);
 
-  // Elapsed session timer, ticking off the real start timestamp.
-  useEffect(() => {
-    if (!session?.started_at) return;
-    const start = new Date(session.started_at).getTime();
-    const interval = setInterval(() => setElapsedSec(Math.floor((Date.now() - start) / 1000)), 1000);
-    return () => clearInterval(interval);
-  }, [session?.started_at]);
-
   // Load history + this-session sets whenever the active exercise changes.
   useEffect(() => {
     if (!activeExercise || !userId) return;
@@ -189,6 +195,35 @@ export default function ActiveWorkoutPage() {
       setSessionSets((mine ?? []) as LoggedSet[]);
     })();
   }, [activeExercise, userId, sessionId]);
+
+  // Most recent machine photo for this exercise, if one's been uploaded —
+  // helps tell apart similar-looking machines at a glance.
+  useEffect(() => {
+    if (!activeExercise || !userId) {
+      setMachinePhotoUrl(null);
+      return;
+    }
+    const supabase = createClient();
+    (async () => {
+      const { data: photo } = await supabase
+        .from("machine_photos")
+        .select("storage_path")
+        .eq("user_id", userId)
+        .eq("exercise_id", activeExercise.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!photo) {
+        setMachinePhotoUrl(null);
+        return;
+      }
+      const { data: signed } = await supabase.storage
+        .from("machine-photos")
+        .createSignedUrl(photo.storage_path, 3600);
+      setMachinePhotoUrl(signed?.signedUrl ?? null);
+    })();
+  }, [activeExercise, userId]);
 
   const suggestion = useMemo(() => {
     if (!activeExercise) return null;
@@ -218,8 +253,9 @@ export default function ActiveWorkoutPage() {
     const setNumber = sessionSets.length + 1;
 
     // Superset-aware rest: short between exercises in the cycle, long once
-    // you've cycled back through every exercise in the group.
-    let rest = activeExercise.default_rest_seconds;
+    // you've cycled back through every exercise in the group. Otherwise a
+    // flat 30s default — adjustable in the timer itself in 15s increments.
+    let rest = 30;
     if (activeGroup) {
       const isLastInGroup =
         activeGroup.exerciseIds[activeGroup.exerciseIds.length - 1] === activeExercise.id;
@@ -240,11 +276,18 @@ export default function ActiveWorkoutPage() {
         difficulty,
         superset_group_id: activeGroup?.id ?? null,
         superset_cycle: activeGroup ? setNumber : null,
+        side: activeExercise.is_unilateral ? side : null,
       })
       .select()
       .single();
 
     if (newSet) setSessionSets((prev) => [...prev, newSet as LoggedSet]);
+
+    // Alternate sides automatically — right then left, matching how a set
+    // of unilateral work is actually performed.
+    if (activeExercise.is_unilateral) {
+      updateDraft({ side: side === "right" ? "left" : "right" });
+    }
 
     const priorMax = Math.max(0, ...allSets.map((s) => s.weight ?? 0));
     const isPR = weight > priorMax;
@@ -391,23 +434,18 @@ export default function ActiveWorkoutPage() {
 
   return (
     <main className="min-h-screen px-5 pb-40 pt-6">
-      <div className="flex items-center justify-between">
-        <p className="font-mono text-xs uppercase tracking-widest text-chalk-500">
-          {Math.floor(elapsedSec / 60)}:{String(elapsedSec % 60).padStart(2, "0")} elapsed
-        </p>
-        <div className="flex items-center gap-3">
-          {plannedExercises.length > 0 && (
-            <button
-              onClick={() => setShowSaveTemplate(true)}
-              className="font-mono text-xs text-chalk-500 underline"
-            >
-              Save as template
-            </button>
-          )}
-          <button onClick={endWorkout} className="font-mono text-xs text-copper-400">
-            End workout
+      <div className="flex items-center justify-end gap-3">
+        {plannedExercises.length > 0 && (
+          <button
+            onClick={() => setShowSaveTemplate(true)}
+            className="font-mono text-xs text-chalk-500 underline"
+          >
+            Save as template
           </button>
-        </div>
+        )}
+        <button onClick={endWorkout} className="font-mono text-xs text-copper-400">
+          End workout
+        </button>
       </div>
 
       {templateSaved && (
@@ -544,12 +582,41 @@ export default function ActiveWorkoutPage() {
         <div className="mt-3 rounded-xl border border-steel-700 bg-steel-900 p-3">
           <div className="flex items-center justify-between">
             <p className="font-mono text-xs uppercase tracking-widest text-chalk-500">
-              Pick a muscle or exercise
+              Switch or add an exercise
             </p>
             <button onClick={() => setShowPicker(false)} className="text-xs text-chalk-500">
               Close
             </button>
           </div>
+
+          {plannedExercises.length > 1 && (
+            <div className="mt-2">
+              <p className="font-mono text-[10px] uppercase tracking-widest text-chalk-500">
+                Today's workout
+              </p>
+              <div className="mt-1 flex flex-wrap gap-2">
+                {plannedExercises.map((ex, i) =>
+                  i === activeIndex ? null : (
+                    <button
+                      key={ex.id}
+                      onClick={() => {
+                        setActiveIndex(i);
+                        setJustLoggedSet(false);
+                        setShowPicker(false);
+                      }}
+                      className="rounded-full border border-steel-600 px-3 py-1.5 text-xs text-chalk-300"
+                    >
+                      {ex.name}
+                    </button>
+                  )
+                )}
+              </div>
+            </div>
+          )}
+
+          <p className="mt-3 font-mono text-[10px] uppercase tracking-widest text-chalk-500">
+            Or add from the full catalog
+          </p>
           <input
             autoFocus
             placeholder="Search all exercises…"
@@ -580,9 +647,26 @@ export default function ActiveWorkoutPage() {
 
       {activeExercise && (
         <>
-          <h1 className="mt-4 font-display text-2xl font-extrabold text-chalk-100">
-            {activeExercise.name}
-          </h1>
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              {machinePhotoUrl && (
+                <img
+                  src={machinePhotoUrl}
+                  alt=""
+                  className="h-12 w-12 shrink-0 rounded-lg object-cover"
+                />
+              )}
+              <h1 className="font-display text-2xl font-extrabold text-chalk-100">
+                {activeExercise.name}
+              </h1>
+            </div>
+            <button
+              onClick={openPicker}
+              className="shrink-0 rounded-lg border border-steel-600 px-3 py-1.5 font-mono text-xs text-chalk-300"
+            >
+              Switch
+            </button>
+          </div>
 
           {prevWeekForExercise.length > 0 && (
             <div className="mt-2 rounded-xl border border-steel-700 bg-steel-900 p-3">
@@ -627,6 +711,31 @@ export default function ActiveWorkoutPage() {
               Time Under Tension
             </button>
           </div>
+
+          {activeExercise.is_unilateral && (
+            <div className="mt-2 flex gap-2">
+              <button
+                onClick={() => updateDraft({ side: "right" })}
+                className={`flex-1 rounded-xl py-2 text-sm font-semibold ${
+                  side === "right"
+                    ? "bg-copper-500 text-steel-950"
+                    : "border border-steel-600 text-chalk-300"
+                }`}
+              >
+                Right
+              </button>
+              <button
+                onClick={() => updateDraft({ side: "left" })}
+                className={`flex-1 rounded-xl py-2 text-sm font-semibold ${
+                  side === "left"
+                    ? "bg-copper-500 text-steel-950"
+                    : "border border-steel-600 text-chalk-300"
+                }`}
+              >
+                Left
+              </button>
+            </div>
+          )}
 
           {suggestion?.reason === "increase" && (
             <button

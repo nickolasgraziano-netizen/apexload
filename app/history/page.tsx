@@ -2,26 +2,45 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 interface HistoryDay {
   sessionId: string;
+  name: string | null;
   muscleGroupName: string;
   startedAt: string;
   endedAt: string | null;
   setCount: number;
 }
 
+interface ExerciseDetail {
+  exerciseName: string;
+  sets: {
+    reps: number | null;
+    weight: number | null;
+    variant: string;
+    side: string | null;
+  }[];
+}
+
 export default function HistoryPage() {
+  const router = useRouter();
   const [days, setDays] = useState<HistoryDay[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [repeatingId, setRepeatingId] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [detailsCache, setDetailsCache] = useState<Record<string, ExerciseDetail[]>>({});
+  const [loadingDetails, setLoadingDetails] = useState<string | null>(null);
 
   async function refresh() {
     const supabase = createClient();
     const { data: sessions } = await supabase
       .from("sessions")
-      .select("id, started_at, ended_at, muscle_groups ( name ), workout_templates ( name )")
+      .select("id, name, started_at, ended_at, muscle_groups ( name ), workout_templates ( name )")
       .order("started_at", { ascending: false });
 
     const sessionIds = (sessions ?? []).map((s: any) => s.id);
@@ -37,6 +56,7 @@ export default function HistoryPage() {
     setDays(
       (sessions ?? []).map((s: any) => ({
         sessionId: s.id,
+        name: s.name,
         muscleGroupName: s.muscle_groups?.name ?? s.workout_templates?.name ?? "Custom workout",
         startedAt: s.started_at,
         endedAt: s.ended_at,
@@ -44,6 +64,41 @@ export default function HistoryPage() {
       }))
     );
     setLoading(false);
+  }
+
+  async function toggleExpand(sessionId: string) {
+    if (expandedId === sessionId) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(sessionId);
+    if (detailsCache[sessionId]) return;
+
+    setLoadingDetails(sessionId);
+    const supabase = createClient();
+    const { data: setRows } = await supabase
+      .from("sets")
+      .select("actual_reps, weight, training_variant, side, logged_at, exercises ( name )")
+      .eq("session_id", sessionId)
+      .order("logged_at");
+
+    const grouped: ExerciseDetail[] = [];
+    for (const s of (setRows ?? []) as any[]) {
+      const exerciseName = s.exercises?.name ?? "Unknown exercise";
+      let entry = grouped.find((g) => g.exerciseName === exerciseName);
+      if (!entry) {
+        entry = { exerciseName, sets: [] };
+        grouped.push(entry);
+      }
+      entry.sets.push({
+        reps: s.actual_reps,
+        weight: s.weight,
+        variant: s.training_variant,
+        side: s.side,
+      });
+    }
+    setDetailsCache((prev) => ({ ...prev, [sessionId]: grouped }));
+    setLoadingDetails(null);
   }
 
   useEffect(() => {
@@ -57,6 +112,85 @@ export default function HistoryPage() {
     await supabase.from("sessions").delete().eq("id", sessionId);
     setDays((prev) => prev.filter((d) => d.sessionId !== sessionId));
     setDeletingId(null);
+  }
+
+  async function saveRename(sessionId: string) {
+    const supabase = createClient();
+    const trimmed = renameValue.trim();
+    await supabase
+      .from("sessions")
+      .update({ name: trimmed || null })
+      .eq("id", sessionId);
+    setDays((prev) => prev.map((d) => (d.sessionId === sessionId ? { ...d, name: trimmed || null } : d)));
+    setRenamingId(null);
+  }
+
+  async function repeatWorkout(sessionId: string) {
+    setRepeatingId(sessionId);
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setRepeatingId(null);
+      return;
+    }
+
+    // Distinct exercises from that day, in the order they were first logged.
+    const { data: setRows } = await supabase
+      .from("sets")
+      .select("exercise_id, logged_at")
+      .eq("session_id", sessionId)
+      .order("logged_at");
+    const exerciseIds: string[] = [];
+    for (const s of setRows ?? []) {
+      if (!exerciseIds.includes(s.exercise_id)) exerciseIds.push(s.exercise_id);
+    }
+
+    const { data: originalSession } = await supabase
+      .from("sessions")
+      .select("muscle_group_id")
+      .eq("id", sessionId)
+      .maybeSingle();
+
+    const { data: originalGroups } = await supabase
+      .from("superset_groups")
+      .select("id, superset_group_exercises ( exercise_id, position )")
+      .eq("session_id", sessionId);
+
+    const { data: newSession } = await supabase
+      .from("sessions")
+      .insert({ user_id: user.id, muscle_group_id: originalSession?.muscle_group_id ?? null })
+      .select()
+      .single();
+
+    if (!newSession) {
+      setRepeatingId(null);
+      return;
+    }
+
+    sessionStorage.setItem(`apexload:plan:${newSession.id}`, JSON.stringify(exerciseIds));
+
+    for (const group of originalGroups ?? []) {
+      const exercises = ((group as any).superset_group_exercises ?? []).sort(
+        (a: any, b: any) => a.position - b.position
+      );
+      const { data: newGroup } = await supabase
+        .from("superset_groups")
+        .insert({ session_id: newSession.id, user_id: user.id })
+        .select()
+        .single();
+      if (!newGroup) continue;
+      await supabase.from("superset_group_exercises").insert(
+        exercises.map((e: any, position: number) => ({
+          group_id: newGroup.id,
+          exercise_id: e.exercise_id,
+          position,
+        }))
+      );
+    }
+
+    router.push(`/workout/${newSession.id}`);
   }
 
   return (
@@ -80,27 +214,115 @@ export default function HistoryPage() {
           {days.map((d) => (
             <li
               key={d.sessionId}
-              className="flex items-center justify-between rounded-xl border border-steel-700 bg-steel-900 px-4 py-3"
+              className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3"
             >
-              <div>
-                <p className="text-chalk-100">{d.muscleGroupName}</p>
-                <p className="mt-0.5 font-mono text-xs text-chalk-500">
-                  {new Date(d.startedAt).toLocaleDateString(undefined, {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                  })}
-                  {" · "}
-                  {d.setCount} {d.setCount === 1 ? "set" : "sets"}
-                </p>
+              {renamingId === d.sessionId ? (
+                <div className="flex gap-2">
+                  <input
+                    autoFocus
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    placeholder={d.muscleGroupName}
+                    className="flex-1 rounded-lg border border-steel-700 bg-steel-800 px-2 py-1 text-sm text-chalk-100"
+                  />
+                  <button
+                    onClick={() => saveRename(d.sessionId)}
+                    className="rounded-lg bg-copper-500 px-3 py-1.5 text-xs font-semibold text-steel-950"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => setRenamingId(null)}
+                    className="rounded-lg border border-steel-600 px-3 py-1.5 text-xs text-chalk-300"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={() => toggleExpand(d.sessionId)}
+                    className="flex-1 text-left"
+                  >
+                    <p className="text-chalk-100">{d.name || d.muscleGroupName}</p>
+                    <p className="mt-0.5 font-mono text-xs text-chalk-500">
+                      {new Date(d.startedAt).toLocaleDateString(undefined, {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                      {" · "}
+                      {d.setCount} {d.setCount === 1 ? "set" : "sets"}
+                      {" "}
+                      {expandedId === d.sessionId ? "▲" : "▼"}
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setRenamingId(d.sessionId);
+                      setRenameValue(d.name ?? "");
+                    }}
+                    className="shrink-0 font-mono text-xs text-chalk-500 underline"
+                  >
+                    Rename
+                  </button>
+                </div>
+              )}
+
+              {expandedId === d.sessionId && (
+                <div className="mt-2 flex flex-col gap-2 border-t border-steel-700 pt-2">
+                  {loadingDetails === d.sessionId ? (
+                    <p className="text-xs text-chalk-500">Loading…</p>
+                  ) : detailsCache[d.sessionId]?.length ? (
+                    detailsCache[d.sessionId].map((entry, i) => (
+                      <div key={i}>
+                        <p className="font-mono text-[10px] uppercase tracking-widest text-chalk-500">
+                          {entry.exerciseName}
+                        </p>
+                        <div className="mt-1 flex flex-wrap gap-2">
+                          {entry.sets.map((s, si) => (
+                            <span
+                              key={si}
+                              className="rounded-md bg-steel-800 px-2 py-1 font-mono text-xs text-chalk-300"
+                            >
+                              {s.reps ?? "—"}×{s.weight ?? "—"}
+                              {s.side && ` ${s.side === "left" ? "L" : "R"}`}
+                              {s.variant === "tut" && (
+                                <span className="ml-1 text-tungsten-400">TUT</span>
+                              )}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-chalk-500">No sets logged.</p>
+                  )}
+                </div>
+              )}
+
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Link
+                  href={`/workout/edit/${d.sessionId}`}
+                  className="rounded-lg border border-steel-600 px-3 py-1.5 text-xs text-chalk-300"
+                >
+                  Edit
+                </Link>
+                <button
+                  onClick={() => repeatWorkout(d.sessionId)}
+                  disabled={repeatingId === d.sessionId}
+                  className="rounded-lg bg-copper-500 px-3 py-1.5 text-xs font-semibold text-steel-950 disabled:opacity-50"
+                >
+                  {repeatingId === d.sessionId ? "Starting…" : "Repeat"}
+                </button>
+                <button
+                  onClick={() => deleteDay(d.sessionId)}
+                  disabled={deletingId === d.sessionId}
+                  className="rounded-lg border border-copper-600 px-3 py-1.5 text-xs text-copper-400 disabled:opacity-50"
+                >
+                  {deletingId === d.sessionId ? "Deleting…" : "Delete"}
+                </button>
               </div>
-              <button
-                onClick={() => deleteDay(d.sessionId)}
-                disabled={deletingId === d.sessionId}
-                className="rounded-lg border border-copper-600 px-3 py-1.5 text-xs text-copper-400 disabled:opacity-50"
-              >
-                {deletingId === d.sessionId ? "Deleting…" : "Delete"}
-              </button>
             </li>
           ))}
         </ul>

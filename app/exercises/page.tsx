@@ -10,7 +10,10 @@ export default function ExerciseCatalogPage() {
   const [query, setQuery] = useState("");
   const [newName, setNewName] = useState("");
   const [newGroupId, setNewGroupId] = useState("");
+  const [newIsUnilateral, setNewIsUnilateral] = useState(false);
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
+  const [userId, setUserId] = useState<string | null>(null);
 
   async function refresh() {
     const supabase = createClient();
@@ -18,6 +21,39 @@ export default function ExerciseCatalogPage() {
     setGroups((mg ?? []) as MuscleGroup[]);
     const { data: ex } = await supabase.from("exercises").select("*").order("name");
     setExercises((ex ?? []) as Exercise[]);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+    setUserId(user.id);
+
+    const { data: photos } = await supabase
+      .from("machine_photos")
+      .select("exercise_id, storage_path, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    // Most recent photo per exercise.
+    const latestPathByExercise = new Map<string, string>();
+    for (const p of photos ?? []) {
+      if (!latestPathByExercise.has(p.exercise_id)) {
+        latestPathByExercise.set(p.exercise_id, p.storage_path);
+      }
+    }
+    if (latestPathByExercise.size === 0) return;
+
+    const { data: signed } = await supabase.storage
+      .from("machine-photos")
+      .createSignedUrls([...latestPathByExercise.values()], 3600);
+
+    const pathToUrl = new Map((signed ?? []).map((s) => [s.path, s.signedUrl]));
+    const urls: Record<string, string> = {};
+    for (const [exerciseId, path] of latestPathByExercise) {
+      const url = pathToUrl.get(path);
+      if (url) urls[exerciseId] = url;
+    }
+    setPhotoUrls(urls);
   }
 
   useEffect(() => {
@@ -37,9 +73,19 @@ export default function ExerciseCatalogPage() {
       muscle_group_id: newGroupId,
       name: newName.trim(),
       is_custom: true,
+      is_unilateral: newIsUnilateral,
     });
     setNewName("");
+    setNewIsUnilateral(false);
     refresh();
+  }
+
+  async function toggleUnilateral(ex: Exercise) {
+    const supabase = createClient();
+    await supabase.from("exercises").update({ is_unilateral: !ex.is_unilateral }).eq("id", ex.id);
+    setExercises((prev) =>
+      prev.map((e) => (e.id === ex.id ? { ...e, is_unilateral: !e.is_unilateral } : e))
+    );
   }
 
   async function uploadMachinePhoto(exerciseId: string, file: File) {
@@ -61,6 +107,7 @@ export default function ExerciseCatalogPage() {
         exercise_id: exerciseId,
         storage_path: path,
       });
+      await refresh();
     }
     setUploadingFor(null);
   }
@@ -102,6 +149,14 @@ export default function ExerciseCatalogPage() {
               </option>
             ))}
           </select>
+          <label className="flex items-center gap-2 text-sm text-chalk-300">
+            <input
+              type="checkbox"
+              checked={newIsUnilateral}
+              onChange={(e) => setNewIsUnilateral(e.target.checked)}
+            />
+            Unilateral (train each side separately)
+          </label>
           <button
             onClick={addCustomExercise}
             className="rounded-lg bg-copper-500 py-2 text-sm font-semibold text-steel-950"
@@ -117,11 +172,35 @@ export default function ExerciseCatalogPage() {
             key={ex.id}
             className="flex items-center justify-between rounded-xl border border-steel-700 bg-steel-900 px-4 py-3"
           >
-            <div>
-              <p className="text-chalk-100">{ex.name}</p>
-              {ex.is_custom && (
-                <span className="font-mono text-[10px] uppercase text-tungsten-400">Custom</span>
+            <div className="flex items-center gap-3">
+              {photoUrls[ex.id] && (
+                <img
+                  src={photoUrls[ex.id]}
+                  alt=""
+                  className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                />
               )}
+              <div>
+                <p className="text-chalk-100">{ex.name}</p>
+                <div className="flex flex-wrap gap-2">
+                  {ex.is_custom && (
+                    <span className="font-mono text-[10px] uppercase text-tungsten-400">Custom</span>
+                  )}
+                  {ex.is_unilateral && (
+                    <span className="font-mono text-[10px] uppercase text-copper-400">
+                      Per side
+                    </span>
+                  )}
+                  {ex.owner_id === userId && (
+                    <button
+                      onClick={() => toggleUnilateral(ex)}
+                      className="font-mono text-[10px] uppercase text-chalk-500 underline"
+                    >
+                      {ex.is_unilateral ? "Make bilateral" : "Make unilateral"}
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
             <label className="cursor-pointer rounded-lg border border-steel-600 px-3 py-1.5 text-xs text-chalk-300">
               {uploadingFor === ex.id ? "Uploading…" : "📷 Photo"}
