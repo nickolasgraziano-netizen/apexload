@@ -16,6 +16,8 @@ export default function ExerciseCatalogPage() {
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
   const [userId, setUserId] = useState<string | null>(null);
+  const [enlargedExerciseId, setEnlargedExerciseId] = useState<string | null>(null);
+  const [deletingPhotoFor, setDeletingPhotoFor] = useState<string | null>(null);
 
   async function refresh() {
     const supabase = createClient();
@@ -122,6 +124,42 @@ export default function ExerciseCatalogPage() {
     setUploadingFor(null);
   }
 
+  async function deleteMachinePhoto(exerciseId: string) {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    setDeletingPhotoFor(exerciseId);
+
+    // Remove every photo ever uploaded for this exercise, not just the
+    // latest — otherwise an older one would resurface after "deleting".
+    const { data: photos } = await supabase
+      .from("machine_photos")
+      .select("id, storage_path")
+      .eq("user_id", user.id)
+      .eq("exercise_id", exerciseId);
+
+    if (photos && photos.length > 0) {
+      await supabase.storage
+        .from("machine-photos")
+        .remove(photos.map((p) => p.storage_path));
+      await supabase
+        .from("machine_photos")
+        .delete()
+        .in("id", photos.map((p) => p.id));
+    }
+
+    setPhotoUrls((prev) => {
+      const next = { ...prev };
+      delete next[exerciseId];
+      return next;
+    });
+    setEnlargedExerciseId(null);
+    setDeletingPhotoFor(null);
+  }
+
   const filtered = exercises.filter((e) => e.name.toLowerCase().includes(query.toLowerCase()));
 
   return (
@@ -187,12 +225,27 @@ export default function ExerciseCatalogPage() {
             className="flex items-center justify-between rounded-xl border border-steel-700 bg-steel-900 px-4 py-3"
           >
             <div className="flex items-center gap-3">
-              {photoUrls[ex.id] && (
-                <img
-                  src={photoUrls[ex.id]}
-                  alt=""
-                  className="h-10 w-10 shrink-0 rounded-lg object-cover"
-                />
+              {photoUrls[ex.id] ? (
+                <button
+                  onClick={() => setEnlargedExerciseId(ex.id)}
+                  className="h-10 w-10 shrink-0 overflow-hidden rounded-lg"
+                >
+                  <img src={photoUrls[ex.id]} alt="" className="h-10 w-10 object-cover" />
+                </button>
+              ) : (
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-dashed border-steel-600 bg-steel-800 text-chalk-600">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    className="h-5 w-5"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                  >
+                    <rect x="3" y="5" width="18" height="14" rx="2" />
+                    <circle cx="8.5" cy="10" r="1.5" fill="currentColor" stroke="none" />
+                    <path d="M3 16l5-5 4 4 3-3 6 6" />
+                  </svg>
+                </div>
               )}
               <div>
                 <p className="text-chalk-100">{ex.name}</p>
@@ -227,21 +280,61 @@ export default function ExerciseCatalogPage() {
                 </div>
               </div>
             </div>
-            <label className="cursor-pointer rounded-lg border border-steel-600 px-3 py-1.5 text-xs text-chalk-300">
-              {uploadingFor === ex.id ? "Uploading…" : "📷 Photo"}
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) uploadMachinePhoto(ex.id, file);
-                }}
-              />
-            </label>
+            <div className="flex shrink-0 items-center gap-2">
+              <label className="cursor-pointer rounded-lg border border-steel-600 px-3 py-1.5 text-xs text-chalk-300">
+                {uploadingFor === ex.id ? "Uploading…" : "📷 Photo"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) uploadMachinePhoto(ex.id, file);
+                  }}
+                />
+              </label>
+              {photoUrls[ex.id] && (
+                <button
+                  onClick={() => deleteMachinePhoto(ex.id)}
+                  disabled={deletingPhotoFor === ex.id}
+                  className="rounded-lg border border-copper-600 px-3 py-1.5 text-xs text-copper-400 disabled:opacity-50"
+                >
+                  {deletingPhotoFor === ex.id ? "…" : "Delete"}
+                </button>
+              )}
+            </div>
           </li>
         ))}
       </ul>
+
+      {enlargedExerciseId && photoUrls[enlargedExerciseId] && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-black/90 p-5"
+          onClick={() => setEnlargedExerciseId(null)}
+        >
+          <img
+            src={photoUrls[enlargedExerciseId]}
+            alt=""
+            onClick={(e) => e.stopPropagation()}
+            className="max-h-[75vh] max-w-full rounded-xl object-contain"
+          />
+          <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => deleteMachinePhoto(enlargedExerciseId)}
+              disabled={deletingPhotoFor === enlargedExerciseId}
+              className="rounded-lg border border-copper-500 px-4 py-2 text-sm text-copper-400 disabled:opacity-50"
+            >
+              {deletingPhotoFor === enlargedExerciseId ? "Deleting…" : "Delete photo"}
+            </button>
+            <button
+              onClick={() => setEnlargedExerciseId(null)}
+              className="rounded-lg bg-steel-800 px-4 py-2 text-sm text-chalk-300"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
