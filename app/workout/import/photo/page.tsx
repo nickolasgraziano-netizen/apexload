@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import MuscleGroupSelect from "@/components/MuscleGroupSelect";
 import type { Exercise, MuscleGroup, SetDifficulty } from "@/lib/types";
 
 interface ExtractedSet {
@@ -24,10 +25,13 @@ export default function ImportPhotoPage() {
 
   const [status, setStatus] = useState<"idle" | "analyzing" | "reviewing" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
-  const [notes, setNotes] = useState<string | null>(null);
+  const [extractedNotes, setExtractedNotes] = useState<string | null>(null);
+  const [notes, setNotes] = useState("");
+  const [name, setName] = useState("");
   const [date, setDate] = useState("");
   const [entries, setEntries] = useState<ReviewEntry[]>([]);
   const [groups, setGroups] = useState<MuscleGroup[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   async function handleFile(file: File) {
@@ -35,11 +39,13 @@ export default function ImportPhotoPage() {
     setError(null);
     const supabase = createClient();
 
-    const [{ data: mg }, { data: catalog }] = await Promise.all([
+    const [{ data: mg }, { data: catalog }, { data: userRes }] = await Promise.all([
       supabase.from("muscle_groups").select("*").order("name"),
       supabase.from("exercises").select("*"),
+      supabase.auth.getUser(),
     ]);
     setGroups((mg ?? []) as MuscleGroup[]);
+    setUserId(userRes?.user?.id ?? null);
     const exerciseCatalog = (catalog ?? []) as Exercise[];
 
     const formData = new FormData();
@@ -55,7 +61,8 @@ export default function ImportPhotoPage() {
     }
 
     setDate(body.date ?? "");
-    setNotes(body.notes || null);
+    setExtractedNotes(body.notes || null);
+    setNotes(body.notes || "");
     setEntries(
       (body.entries ?? []).map((e: any) => {
         const match = exerciseCatalog.find(
@@ -124,8 +131,10 @@ export default function ImportPhotoPage() {
       .insert({
         user_id: user.id,
         muscle_group_id: null,
+        name: name.trim() || null,
         started_at: startedAt.toISOString(),
         ended_at: endedAt.toISOString(),
+        notes: notes.trim() || null,
       })
       .select()
       .single();
@@ -228,14 +237,30 @@ export default function ImportPhotoPage() {
 
       {status === "reviewing" && (
         <>
-          {notes && (
-            <div className="mt-4 rounded-xl border border-tungsten-500 bg-tungsten-600/10 p-3">
-              <p className="font-mono text-[10px] uppercase tracking-widest text-tungsten-400">
-                Worth double-checking
-              </p>
-              <p className="mt-1 text-sm text-chalk-100">{notes}</p>
-            </div>
-          )}
+          <label className="mt-4 flex flex-col gap-1">
+            <span className="font-mono text-xs uppercase tracking-widest text-chalk-500">
+              Name (optional)
+            </span>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Push Day"
+              className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
+            />
+          </label>
+
+          <label className="mt-4 flex flex-col gap-1">
+            <span className="font-mono text-xs uppercase tracking-widest text-chalk-500">
+              Notes {extractedNotes && "(worth double-checking — pulled from the photo)"}
+            </span>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="How it felt, gym conditions, anything to remember…"
+              rows={3}
+              className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
+            />
+          </label>
 
           <label className="mt-4 flex flex-col gap-1">
             <span className="font-mono text-xs uppercase tracking-widest text-chalk-500">Date</span>
@@ -271,18 +296,14 @@ export default function ImportPhotoPage() {
                     <p className="font-mono text-[10px] uppercase text-chalk-500">
                       Not in your catalog — pick a muscle group to add it
                     </p>
-                    <select
+                    <MuscleGroupSelect
+                      groups={groups}
                       value={entry.newGroupId}
-                      onChange={(e) => updateEntry(ei, { newGroupId: e.target.value })}
+                      onChange={(groupId) => updateEntry(ei, { newGroupId: groupId })}
+                      onGroupCreated={(g) => setGroups((prev) => [...prev, g])}
+                      userId={userId}
                       className="mt-1 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
-                    >
-                      <option value="">Muscle group…</option>
-                      {groups.map((g) => (
-                        <option key={g.id} value={g.id}>
-                          {g.name}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
                 )}
 

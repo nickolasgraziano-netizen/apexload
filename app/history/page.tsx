@@ -8,10 +8,22 @@ import { createClient } from "@/lib/supabase/client";
 interface HistoryDay {
   sessionId: string;
   name: string | null;
+  notes: string | null;
   muscleGroupName: string;
   startedAt: string;
   endedAt: string | null;
   setCount: number;
+}
+
+// Unfinished sessions fall off Home automatically (or get removed
+// manually), but stay resumable from here for a few days before an
+// abandoned session is just treated as history.
+const RESUME_WINDOW_DAYS = 3;
+
+function canResume(d: HistoryDay): boolean {
+  if (d.endedAt) return false;
+  const ageMs = Date.now() - new Date(d.startedAt).getTime();
+  return ageMs < RESUME_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 }
 
 interface ExerciseDetail {
@@ -21,6 +33,9 @@ interface ExerciseDetail {
     weight: number | null;
     variant: string;
     side: string | null;
+    durationSeconds: number | null;
+    setNotes: string | null;
+    calories: number | null;
   }[];
 }
 
@@ -32,6 +47,8 @@ export default function HistoryPage() {
   const [repeatingId, setRepeatingId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [notesEditId, setNotesEditId] = useState<string | null>(null);
+  const [notesEditValue, setNotesEditValue] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [detailsCache, setDetailsCache] = useState<Record<string, ExerciseDetail[]>>({});
   const [loadingDetails, setLoadingDetails] = useState<string | null>(null);
@@ -40,7 +57,7 @@ export default function HistoryPage() {
     const supabase = createClient();
     const { data: sessions } = await supabase
       .from("sessions")
-      .select("id, name, started_at, ended_at, muscle_groups ( name ), workout_templates ( name )")
+      .select("id, name, notes, started_at, ended_at, muscle_groups ( name ), workout_templates ( name )")
       .order("started_at", { ascending: false });
 
     const sessionIds = (sessions ?? []).map((s: any) => s.id);
@@ -57,6 +74,7 @@ export default function HistoryPage() {
       (sessions ?? []).map((s: any) => ({
         sessionId: s.id,
         name: s.name,
+        notes: s.notes,
         muscleGroupName: s.muscle_groups?.name ?? s.workout_templates?.name ?? "Custom workout",
         startedAt: s.started_at,
         endedAt: s.ended_at,
@@ -78,7 +96,9 @@ export default function HistoryPage() {
     const supabase = createClient();
     const { data: setRows } = await supabase
       .from("sets")
-      .select("actual_reps, weight, training_variant, side, logged_at, exercises ( name )")
+      .select(
+        "actual_reps, weight, training_variant, side, duration_seconds, notes, calories, logged_at, exercises ( name )"
+      )
       .eq("session_id", sessionId)
       .order("logged_at");
 
@@ -95,6 +115,9 @@ export default function HistoryPage() {
         weight: s.weight,
         variant: s.training_variant,
         side: s.side,
+        durationSeconds: s.duration_seconds,
+        setNotes: s.notes,
+        calories: s.calories,
       });
     }
     setDetailsCache((prev) => ({ ...prev, [sessionId]: grouped }));
@@ -123,6 +146,19 @@ export default function HistoryPage() {
       .eq("id", sessionId);
     setDays((prev) => prev.map((d) => (d.sessionId === sessionId ? { ...d, name: trimmed || null } : d)));
     setRenamingId(null);
+  }
+
+  async function saveNote(sessionId: string) {
+    const supabase = createClient();
+    const trimmed = notesEditValue.trim();
+    await supabase
+      .from("sessions")
+      .update({ notes: trimmed || null })
+      .eq("id", sessionId);
+    setDays((prev) =>
+      prev.map((d) => (d.sessionId === sessionId ? { ...d, notes: trimmed || null } : d))
+    );
+    setNotesEditId(null);
   }
 
   async function repeatWorkout(sessionId: string) {
@@ -270,7 +306,52 @@ export default function HistoryPage() {
               )}
 
               {expandedId === d.sessionId && (
-                <div className="mt-2 flex flex-col gap-2 border-t border-steel-700 pt-2">
+                <div className="mt-2 flex flex-col gap-3 border-t border-steel-700 pt-2">
+                  {notesEditId === d.sessionId ? (
+                    <div className="flex flex-col gap-2">
+                      <textarea
+                        autoFocus
+                        value={notesEditValue}
+                        onChange={(e) => setNotesEditValue(e.target.value)}
+                        placeholder="How it felt, gym conditions, anything to remember…"
+                        rows={3}
+                        className="w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100 outline-none focus:border-copper-500"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => saveNote(d.sessionId)}
+                          className="rounded-lg bg-copper-500 px-3 py-1.5 text-xs font-semibold text-steel-950"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setNotesEditId(null)}
+                          className="rounded-lg border border-steel-600 px-3 py-1.5 text-xs text-chalk-300"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <p className="font-mono text-[10px] uppercase tracking-widest text-chalk-500">
+                          Notes
+                        </p>
+                        <button
+                          onClick={() => {
+                            setNotesEditId(d.sessionId);
+                            setNotesEditValue(d.notes ?? "");
+                          }}
+                          className="font-mono text-[10px] uppercase text-chalk-500 underline"
+                        >
+                          {d.notes ? "Edit" : "Add note"}
+                        </button>
+                      </div>
+                      {d.notes && <p className="mt-1 text-sm text-chalk-100">{d.notes}</p>}
+                    </div>
+                  )}
+
                   {loadingDetails === d.sessionId ? (
                     <p className="text-xs text-chalk-500">Loading…</p>
                   ) : detailsCache[d.sessionId]?.length ? (
@@ -280,18 +361,29 @@ export default function HistoryPage() {
                           {entry.exerciseName}
                         </p>
                         <div className="mt-1 flex flex-wrap gap-2">
-                          {entry.sets.map((s, si) => (
-                            <span
-                              key={si}
-                              className="rounded-md bg-steel-800 px-2 py-1 font-mono text-xs text-chalk-300"
-                            >
-                              {s.reps ?? "—"}×{s.weight ?? "—"}
-                              {s.side && ` ${s.side === "left" ? "L" : "R"}`}
-                              {s.variant === "tut" && (
-                                <span className="ml-1 text-tungsten-400">TUT</span>
-                              )}
-                            </span>
-                          ))}
+                          {entry.sets.map((s, si) =>
+                            s.durationSeconds != null ? (
+                              <span
+                                key={si}
+                                className="rounded-md bg-steel-800 px-2 py-1 font-mono text-xs text-chalk-300"
+                              >
+                                {Math.round(s.durationSeconds / 60)} min
+                                {s.calories != null && ` · ${s.calories} cal`}
+                                {s.setNotes && ` · ${s.setNotes}`}
+                              </span>
+                            ) : (
+                              <span
+                                key={si}
+                                className="rounded-md bg-steel-800 px-2 py-1 font-mono text-xs text-chalk-300"
+                              >
+                                {s.reps ?? "—"}×{s.weight ?? "—"}
+                                {s.side && ` ${s.side === "left" ? "L" : "R"}`}
+                                {s.variant === "tut" && (
+                                  <span className="ml-1 text-tungsten-400">TUT</span>
+                                )}
+                              </span>
+                            )
+                          )}
                         </div>
                       </div>
                     ))
@@ -302,6 +394,14 @@ export default function HistoryPage() {
               )}
 
               <div className="mt-2 flex flex-wrap gap-2">
+                {canResume(d) && (
+                  <Link
+                    href={`/workout/${d.sessionId}`}
+                    className="rounded-lg bg-tungsten-500 px-3 py-1.5 text-xs font-semibold text-steel-950"
+                  >
+                    Resume
+                  </Link>
+                )}
                 <Link
                   href={`/workout/edit/${d.sessionId}`}
                   className="rounded-lg border border-steel-600 px-3 py-1.5 text-xs text-chalk-300"

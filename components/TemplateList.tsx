@@ -76,7 +76,10 @@ export default function TemplateList({
           key={t.id}
           className="flex items-center justify-between rounded-xl border border-steel-700 bg-steel-900 px-4 py-3"
         >
-          <span className="text-chalk-100">{t.name}</span>
+          <div>
+            <span className="text-chalk-100">{t.name}</span>
+            {t.notes && <p className="mt-0.5 text-xs text-chalk-500">{t.notes}</p>}
+          </div>
           <button
             onClick={() => startTemplate(t)}
             disabled={startingId === t.id}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import MuscleGroupSelect from "@/components/MuscleGroupSelect";
 import type { Exercise, MuscleGroup, SetDifficulty, SetSide, TrainingVariant } from "@/lib/types";
 
 interface SetEntry {
@@ -16,6 +17,9 @@ interface SetEntry {
 interface ExerciseEntry {
   exercise: Exercise;
   sets: SetEntry[];
+  cardioDurationMinutes: string;
+  cardioNotes: string;
+  cardioCalories: string;
 }
 
 const DEFAULT_SET: SetEntry = {
@@ -35,9 +39,12 @@ function todayLocal(): string {
 export default function LogPastWorkoutPage() {
   const router = useRouter();
   const [date, setDate] = useState(todayLocal());
+  const [notes, setNotes] = useState("");
+  const [name, setName] = useState("");
   const [entries, setEntries] = useState<ExerciseEntry[]>([]);
   const [saving, setSaving] = useState(false);
 
+  const [userId, setUserId] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<(Exercise & { muscle_groups: { name: string } | null })[]>([]);
   const [groups, setGroups] = useState<MuscleGroup[]>([]);
   const [showPicker, setShowPicker] = useState(false);
@@ -49,6 +56,11 @@ export default function LogPastWorkoutPage() {
   useEffect(() => {
     const supabase = createClient();
     (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) setUserId(user.id);
+
       const { data: mg } = await supabase.from("muscle_groups").select("*").order("name");
       setGroups((mg ?? []) as MuscleGroup[]);
       const { data: ex } = await supabase
@@ -65,11 +77,26 @@ export default function LogPastWorkoutPage() {
         ? prev
         : [
             ...prev,
-            { exercise: ex, sets: [{ ...DEFAULT_SET, side: ex.is_unilateral ? "right" : null }] },
+            {
+              exercise: ex,
+              sets: ex.is_cardio ? [] : [{ ...DEFAULT_SET, side: ex.is_unilateral ? "right" : null }],
+              cardioDurationMinutes: "",
+              cardioNotes: "",
+              cardioCalories: "",
+            },
           ]
     );
     setShowPicker(false);
     setPickerQuery("");
+  }
+
+  function updateCardioEntry(
+    exerciseId: string,
+    patch: Partial<Pick<ExerciseEntry, "cardioDurationMinutes" | "cardioNotes" | "cardioCalories">>
+  ) {
+    setEntries((prev) =>
+      prev.map((e) => (e.exercise.id === exerciseId ? { ...e, ...patch } : e))
+    );
   }
 
   async function addCustomExercise() {
@@ -148,8 +175,10 @@ export default function LogPastWorkoutPage() {
       .insert({
         user_id: user.id,
         muscle_group_id: null,
+        name: name.trim() || null,
         started_at: startedAt.toISOString(),
         ended_at: endedAt.toISOString(),
+        notes: notes.trim() || null,
       })
       .select()
       .single();
@@ -160,10 +189,51 @@ export default function LogPastWorkoutPage() {
     }
 
     let minuteOffset = 0;
-    const rows = entries.flatMap((entry) =>
-      entry.sets.map((s, i) => {
+    const rows: {
+      session_id: string;
+      user_id: string;
+      exercise_id: string;
+      training_variant: TrainingVariant;
+      set_number: number;
+      target_reps: number;
+      actual_reps: number | null;
+      weight: number | null;
+      difficulty: SetDifficulty | null;
+      side: SetSide | null;
+      duration_seconds: number | null;
+      notes: string | null;
+      calories: number | null;
+      logged_at: string;
+    }[] = [];
+    for (const entry of entries) {
+      if (entry.exercise.is_cardio) {
         minuteOffset += 1;
-        return {
+        const minutes = Number(entry.cardioDurationMinutes);
+        const durationSeconds = Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes * 60) : null;
+        const calories = Number(entry.cardioCalories);
+        const caloriesValue = Number.isFinite(calories) && calories > 0 ? Math.round(calories) : null;
+        rows.push({
+          session_id: session.id,
+          user_id: user.id,
+          exercise_id: entry.exercise.id,
+          training_variant: "standard",
+          set_number: 1,
+          target_reps: 0,
+          actual_reps: null,
+          weight: null,
+          difficulty: null,
+          side: null,
+          duration_seconds: durationSeconds,
+          notes: entry.cardioNotes.trim() || null,
+          calories: caloriesValue,
+          logged_at: new Date(startedAt.getTime() + minuteOffset * 60 * 1000).toISOString(),
+        });
+        continue;
+      }
+
+      entry.sets.forEach((s, i) => {
+        minuteOffset += 1;
+        rows.push({
           session_id: session.id,
           user_id: user.id,
           exercise_id: entry.exercise.id,
@@ -174,10 +244,13 @@ export default function LogPastWorkoutPage() {
           weight: s.weight,
           difficulty: s.difficulty,
           side: s.side,
+          duration_seconds: null,
+          notes: null,
+          calories: null,
           logged_at: new Date(startedAt.getTime() + minuteOffset * 60 * 1000).toISOString(),
-        };
-      })
-    );
+        });
+      });
+    }
     await supabase.from("sets").insert(rows);
 
     router.push("/history");
@@ -198,12 +271,37 @@ export default function LogPastWorkoutPage() {
       </p>
 
       <label className="mt-5 flex flex-col gap-1">
+        <span className="font-mono text-xs uppercase tracking-widest text-chalk-500">
+          Name (optional)
+        </span>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. Push Day"
+          className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
+        />
+      </label>
+
+      <label className="mt-4 flex flex-col gap-1">
         <span className="font-mono text-xs uppercase tracking-widest text-chalk-500">Date</span>
         <input
           type="date"
           value={date}
           max={todayLocal()}
           onChange={(e) => setDate(e.target.value)}
+          className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
+        />
+      </label>
+
+      <label className="mt-4 flex flex-col gap-1">
+        <span className="font-mono text-xs uppercase tracking-widest text-chalk-500">
+          Notes (optional)
+        </span>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="How it felt, gym conditions, anything to remember…"
+          rows={3}
           className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
         />
       </label>
@@ -220,6 +318,44 @@ export default function LogPastWorkoutPage() {
                 Remove
               </button>
             </div>
+            {entry.exercise.is_cardio ? (
+              <div className="mt-3 flex flex-col gap-2">
+                <label className="flex flex-col gap-1">
+                  <span className="font-mono text-xs text-chalk-500">Duration (minutes)</span>
+                  <input
+                    type="number"
+                    value={entry.cardioDurationMinutes}
+                    onChange={(e) =>
+                      updateCardioEntry(entry.exercise.id, { cardioDurationMinutes: e.target.value })
+                    }
+                    className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="font-mono text-xs text-chalk-500">Calories burned (optional)</span>
+                  <input
+                    type="number"
+                    value={entry.cardioCalories}
+                    onChange={(e) =>
+                      updateCardioEntry(entry.exercise.id, { cardioCalories: e.target.value })
+                    }
+                    className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="font-mono text-xs text-chalk-500">
+                    Notes (intensity, incline, etc.)
+                  </span>
+                  <textarea
+                    value={entry.cardioNotes}
+                    onChange={(e) => updateCardioEntry(entry.exercise.id, { cardioNotes: e.target.value })}
+                    rows={2}
+                    placeholder="e.g. Incline 5, resistance 8"
+                    className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
+                  />
+                </label>
+              </div>
+            ) : (
             <div className="mt-3 flex flex-col gap-2">
               {entry.sets.map((s, i) => (
                 <div key={i} className="flex items-center gap-2">
@@ -291,6 +427,7 @@ export default function LogPastWorkoutPage() {
                 + Add set
               </button>
             </div>
+            )}
           </div>
         ))}
       </div>
@@ -356,18 +493,14 @@ export default function LogPastWorkoutPage() {
                 onChange={(e) => setNewName(e.target.value)}
                 className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
               />
-              <select
+              <MuscleGroupSelect
+                groups={groups}
                 value={newGroupId}
-                onChange={(e) => setNewGroupId(e.target.value)}
+                onChange={setNewGroupId}
+                onGroupCreated={(g) => setGroups((prev) => [...prev, g])}
+                userId={userId}
                 className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
-              >
-                <option value="">Muscle group…</option>
-                {groups.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
-                  </option>
-                ))}
-              </select>
+              />
               <button
                 onClick={addCustomExercise}
                 className="rounded-lg bg-copper-500 py-2 text-sm font-semibold text-steel-950"

@@ -2,10 +2,13 @@ export type TrainingVariant = "standard" | "tut";
 export type SetDifficulty = "easy" | "moderate" | "difficult" | "failed";
 export type SetSide = "left" | "right";
 
-// Global taxonomy — shared across all users, not user-owned.
+// Shared taxonomy — either global (owner_id null, is_global true) or a
+// user-created custom group (e.g. "Cardio", "Elliptical", "Stair Climber").
 export interface MuscleGroup {
   id: string;
   name: string;
+  owner_id: string | null;
+  is_global: boolean;
 }
 
 export interface SubMuscle {
@@ -32,6 +35,7 @@ export interface Exercise {
   name: string;
   is_custom: boolean;
   is_unilateral: boolean; // trained one side at a time, e.g. single-arm pulldown
+  is_cardio: boolean; // logged by duration + notes instead of sets of reps/weight
   default_rest_seconds: number;
 }
 
@@ -58,6 +62,8 @@ export interface WorkoutSession {
   started_at: string;
   ended_at: string | null;
   time_budget_minutes: number | null;
+  notes: string | null;
+  dismissed_at: string | null; // manually hidden from Home while still unfinished
 }
 
 // A saved, reusable exercise list (optionally with superset pairings) a
@@ -67,6 +73,7 @@ export interface WorkoutTemplate {
   id: string;
   user_id: string;
   name: string;
+  notes: string | null;
   created_at: string;
 }
 
@@ -92,6 +99,9 @@ export interface LoggedSet {
   superset_group_id: string | null;
   superset_cycle: number | null;
   side: SetSide | null;
+  duration_seconds: number | null; // cardio: session length, in place of reps/weight
+  notes: string | null; // cardio: intensity/style (incline, resistance, etc.)
+  calories: number | null; // cardio: calories burned
 }
 
 // A rotating group of 2-3 exercises alternated between sets, with a short
