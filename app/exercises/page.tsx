@@ -280,29 +280,18 @@ export default function ExerciseCatalogPage() {
                 </div>
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <label className="cursor-pointer rounded-lg border border-steel-600 px-3 py-1.5 text-xs text-chalk-300">
-                {uploadingFor === ex.id ? "Uploading…" : "📷 Photo"}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) uploadMachinePhoto(ex.id, file);
-                  }}
-                />
-              </label>
-              {photoUrls[ex.id] && (
-                <button
-                  onClick={() => deleteMachinePhoto(ex.id)}
-                  disabled={deletingPhotoFor === ex.id}
-                  className="rounded-lg border border-copper-600 px-3 py-1.5 text-xs text-copper-400 disabled:opacity-50"
-                >
-                  {deletingPhotoFor === ex.id ? "…" : "Delete"}
-                </button>
-              )}
-            </div>
+            <label className="shrink-0 cursor-pointer rounded-lg border border-steel-600 px-3 py-1.5 text-xs text-chalk-300">
+              {uploadingFor === ex.id ? "Uploading…" : "📷 Photo"}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) uploadMachinePhoto(ex.id, file);
+                }}
+              />
+            </label>
           </li>
         ))}
       </ul>
