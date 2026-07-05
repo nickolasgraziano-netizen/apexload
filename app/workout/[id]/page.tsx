@@ -67,8 +67,12 @@ export default function ActiveWorkoutPage() {
 
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
   const [templateName, setTemplateName] = useState("");
+  const [templateNotes, setTemplateNotes] = useState("");
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [templateSaved, setTemplateSaved] = useState(false);
+
+  const [showNotes, setShowNotes] = useState(false);
+  const [notes, setNotes] = useState("");
 
   // Supersets: 2-3 exercise tabs rotated between sets. Grouping can be
   // created here on the fly (select tabs) or arrive pre-made from workout/new.
@@ -122,6 +126,7 @@ export default function ActiveWorkoutPage() {
         .eq("id", sessionId)
         .single();
       setSession(sess as WorkoutSession);
+      setNotes((sess as WorkoutSession)?.notes ?? "");
 
       const planIds: string[] = JSON.parse(
         sessionStorage.getItem(`apexload:plan:${sessionId}`) ?? "[]"
@@ -316,6 +321,12 @@ export default function ActiveWorkoutPage() {
     setSessionSets((prev) => prev.filter((s) => s.id !== id));
   }
 
+  async function saveNotes() {
+    const supabase = createClient();
+    const trimmed = notes.trim() || null;
+    await supabase.from("sessions").update({ notes: trimmed }).eq("id", sessionId);
+  }
+
   async function endWorkout() {
     const supabase = createClient();
     await supabase.from("sessions").update({ ended_at: new Date().toISOString() }).eq("id", sessionId);
@@ -329,7 +340,7 @@ export default function ActiveWorkoutPage() {
 
     const { data: template } = await supabase
       .from("workout_templates")
-      .insert({ user_id: userId, name: templateName.trim() })
+      .insert({ user_id: userId, name: templateName.trim(), notes: templateNotes.trim() || null })
       .select()
       .single();
     if (!template) {
@@ -364,6 +375,7 @@ export default function ActiveWorkoutPage() {
     setSavingTemplate(false);
     setShowSaveTemplate(false);
     setTemplateName("");
+    setTemplateNotes("");
     setTemplateSaved(true);
   }
 
@@ -435,6 +447,12 @@ export default function ActiveWorkoutPage() {
   return (
     <main className="min-h-screen px-5 pb-40 pt-6">
       <div className="flex items-center justify-end gap-3">
+        <button
+          onClick={() => setShowNotes((v) => !v)}
+          className="font-mono text-xs text-chalk-500 underline"
+        >
+          {notes ? "Edit note" : "Add note"}
+        </button>
         {plannedExercises.length > 0 && (
           <button
             onClick={() => setShowSaveTemplate(true)}
@@ -447,6 +465,30 @@ export default function ActiveWorkoutPage() {
           End workout
         </button>
       </div>
+
+      {showNotes && (
+        <div className="mt-3 rounded-xl border border-steel-700 bg-steel-900 p-4">
+          <p className="font-mono text-xs uppercase tracking-widest text-chalk-500">Notes</p>
+          <textarea
+            autoFocus
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            onBlur={saveNotes}
+            placeholder="How it felt, gym conditions, anything to remember…"
+            rows={3}
+            className="mt-2 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100 outline-none focus:border-copper-500"
+          />
+          <button
+            onClick={() => {
+              saveNotes();
+              setShowNotes(false);
+            }}
+            className="mt-2 rounded-lg bg-copper-500 px-3 py-1.5 text-xs font-semibold text-steel-950"
+          >
+            Save note
+          </button>
+        </div>
+      )}
 
       {templateSaved && (
         <div className="mt-3 rounded-xl border border-tungsten-500 bg-tungsten-600/10 px-4 py-3">
@@ -466,6 +508,13 @@ export default function ActiveWorkoutPage() {
             placeholder="e.g. Push Day"
             className="mt-2 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100 outline-none focus:border-copper-500"
           />
+          <textarea
+            value={templateNotes}
+            onChange={(e) => setTemplateNotes(e.target.value)}
+            placeholder="Notes for this template (optional)"
+            rows={2}
+            className="mt-2 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100 outline-none focus:border-copper-500"
+          />
           <div className="mt-3 flex gap-2">
             <button
               onClick={saveAsTemplate}
@@ -478,6 +527,7 @@ export default function ActiveWorkoutPage() {
               onClick={() => {
                 setShowSaveTemplate(false);
                 setTemplateName("");
+                setTemplateNotes("");
               }}
               className="rounded-lg border border-steel-600 px-3 py-1.5 text-xs text-chalk-300"
             >

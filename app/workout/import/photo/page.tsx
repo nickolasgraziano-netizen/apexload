@@ -24,7 +24,8 @@ export default function ImportPhotoPage() {
 
   const [status, setStatus] = useState<"idle" | "analyzing" | "reviewing" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
-  const [notes, setNotes] = useState<string | null>(null);
+  const [extractedNotes, setExtractedNotes] = useState<string | null>(null);
+  const [notes, setNotes] = useState("");
   const [date, setDate] = useState("");
   const [entries, setEntries] = useState<ReviewEntry[]>([]);
   const [groups, setGroups] = useState<MuscleGroup[]>([]);
@@ -55,7 +56,8 @@ export default function ImportPhotoPage() {
     }
 
     setDate(body.date ?? "");
-    setNotes(body.notes || null);
+    setExtractedNotes(body.notes || null);
+    setNotes(body.notes || "");
     setEntries(
       (body.entries ?? []).map((e: any) => {
         const match = exerciseCatalog.find(
@@ -126,6 +128,7 @@ export default function ImportPhotoPage() {
         muscle_group_id: null,
         started_at: startedAt.toISOString(),
         ended_at: endedAt.toISOString(),
+        notes: notes.trim() || null,
       })
       .select()
       .single();
@@ -228,14 +231,18 @@ export default function ImportPhotoPage() {
 
       {status === "reviewing" && (
         <>
-          {notes && (
-            <div className="mt-4 rounded-xl border border-tungsten-500 bg-tungsten-600/10 p-3">
-              <p className="font-mono text-[10px] uppercase tracking-widest text-tungsten-400">
-                Worth double-checking
-              </p>
-              <p className="mt-1 text-sm text-chalk-100">{notes}</p>
-            </div>
-          )}
+          <label className="mt-4 flex flex-col gap-1">
+            <span className="font-mono text-xs uppercase tracking-widest text-chalk-500">
+              Notes {extractedNotes && "(worth double-checking — pulled from the photo)"}
+            </span>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="How it felt, gym conditions, anything to remember…"
+              rows={3}
+              className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
+            />
+          </label>
 
           <label className="mt-4 flex flex-col gap-1">
             <span className="font-mono text-xs uppercase tracking-widest text-chalk-500">Date</span>

@@ -58,6 +58,7 @@ export interface WorkoutSession {
   started_at: string;
   ended_at: string | null;
   time_budget_minutes: number | null;
+  notes: string | null;
 }
 
 // A saved, reusable exercise list (optionally with superset pairings) a
@@ -67,6 +68,7 @@ export interface WorkoutTemplate {
   id: string;
   user_id: string;
   name: string;
+  notes: string | null;
   created_at: string;
 }
 

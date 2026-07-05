@@ -39,6 +39,7 @@ export default function EditWorkoutPage() {
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
+  const [notes, setNotes] = useState("");
   const [entries, setEntries] = useState<ExerciseEntry[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -65,6 +66,7 @@ export default function EditWorkoutPage() {
       if (session) {
         setName(session.name ?? "");
         setDate(toDateInputValue(session.started_at));
+        setNotes(session.notes ?? "");
       }
 
       const { data: setRows } = await supabase
@@ -183,6 +185,7 @@ export default function EditWorkoutPage() {
         name: name.trim() || null,
         started_at: startedAt.toISOString(),
         ended_at: endedAt.toISOString(),
+        notes: notes.trim() || null,
       })
       .eq("id", sessionId);
 
@@ -249,6 +252,19 @@ export default function EditWorkoutPage() {
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
+          className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
+        />
+      </label>
+
+      <label className="mt-4 flex flex-col gap-1">
+        <span className="font-mono text-xs uppercase tracking-widest text-chalk-500">
+          Notes (optional)
+        </span>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="How it felt, gym conditions, anything to remember…"
+          rows={3}
           className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
         />
       </label>
