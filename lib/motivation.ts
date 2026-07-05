@@ -9,13 +9,19 @@ export function firstNameFrom(displayName: string | null | undefined): string {
   return displayName.trim().split(/\s+/)[0] || "there";
 }
 
+// Real Bruce Lee quotes, used as the generic-encouragement fallback when
+// there's no PR or weekly-consistency signal to show instead.
 const GENERIC_MESSAGES = [
-  "Consistency beats intensity. Show up today.",
-  "Every set logged is progress you can measure.",
-  "Small increases compound. Keep stacking them.",
-  "You don't have to go hard, you just have to go.",
-  "Progress isn't always visible day to day — the log remembers.",
-  "The best rep is the one you actually do.",
+  "Be water, my friend. — Bruce Lee",
+  "I fear not the man who has practiced 10,000 kicks once, but I fear the man who has practiced one kick 10,000 times. — Bruce Lee",
+  "A goal is not always meant to be reached, it often serves simply as something to aim at. — Bruce Lee",
+  "The successful warrior is the average man, with laser-like focus. — Bruce Lee",
+  "Do not pray for an easy life, pray for the strength to endure a difficult one. — Bruce Lee",
+  "Notice that the stiffest tree is most easily cracked, while the bamboo or willow survives by bending with the wind. — Bruce Lee",
+  "As you think, so shall you become. — Bruce Lee",
+  "There are no limits. There are only plateaus, and you must not stay there, you must go beyond them. — Bruce Lee",
+  "Absorb what is useful, discard what is useless and add what is specifically your own. — Bruce Lee",
+  "The key to immortality is first living a life worth remembering. — Bruce Lee",
 ];
 
 /** Deterministic pick from the generic pool, so server and client agree. */

@@ -24,7 +24,7 @@ const TOOLTIP_STYLE = {
   color: "#F5F3EE",
 };
 
-const MUSCLE_GROUP_COLORS = ["#FF7A45", "#3FB8A8", "#D8D4CA", "#889099", "#B84A20"];
+const MUSCLE_GROUP_COLORS = ["#FFD400", "#E34234", "#D8D4CA", "#889099", "#C9A400"];
 
 function shortWeekLabel(weekStart: string) {
   const d = new Date(`${weekStart}T00:00:00Z`);
@@ -71,10 +71,10 @@ export function VolumeChart({
 }
 
 const DIFFICULTY_COLORS: Record<string, string> = {
-  easy: "#3FB8A8",
+  easy: "#E34234",
   moderate: "#D8D4CA",
-  difficult: "#FF7A45",
-  failed: "#B84A20",
+  difficult: "#FFD400",
+  failed: "#C9A400",
 };
 
 export function DifficultyChart({ data }: { data: DifficultyBreakdown[] }) {
@@ -103,7 +103,7 @@ export function DifficultyChart({ data }: { data: DifficultyBreakdown[] }) {
   );
 }
 
-const VARIANT_COLORS: Record<string, string> = { standard: "#FF7A45", tut: "#3FB8A8" };
+const VARIANT_COLORS: Record<string, string> = { standard: "#FFD400", tut: "#E34234" };
 const VARIANT_LABELS: Record<string, string> = { standard: "Standard", tut: "Time Under Tension" };
 
 export function VariantChart({ data }: { data: VariantSplit[] }) {
@@ -151,9 +151,9 @@ export function SessionsPerWeekChart({ data }: { data: WeeklySessionCount[] }) {
         <Line
           type="monotone"
           dataKey="count"
-          stroke="#FF7A45"
+          stroke="#FFD400"
           strokeWidth={2}
-          dot={{ r: 3, fill: "#FF7A45" }}
+          dot={{ r: 3, fill: "#FFD400" }}
         />
       </LineChart>
     </ResponsiveContainer>

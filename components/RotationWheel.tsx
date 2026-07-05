@@ -10,8 +10,8 @@ interface Props {
 /**
  * Circular "loading plate" motif — the five muscle groups sit as segments
  * around a plate, echoing the literal shape of the equipment the app
- * tracks. The predicted segment is lit in copper; the rest sit quiet in
- * steel, so the eye lands on "what's next" immediately.
+ * tracks. The predicted segment lights up tracksuit-yellow; the rest sit
+ * quiet in steel, so the eye lands on "what's next" immediately.
  */
 export default function RotationWheel({ groups, predictedGroupId }: Props) {
   const size = 220;
@@ -35,8 +35,8 @@ export default function RotationWheel({ groups, predictedGroupId }: Props) {
                 cx={x}
                 cy={y}
                 r={isPredicted ? 26 : 20}
-                fill={isPredicted ? "#FF7A45" : "#1B1F26"}
-                stroke={isPredicted ? "#FF9868" : "#3A4149"}
+                fill={isPredicted ? "#FFD400" : "#1B1F26"}
+                stroke={isPredicted ? "#FFE066" : "#3A4149"}
                 strokeWidth={isPredicted ? 2 : 1}
                 className="transition-all duration-500"
               />
