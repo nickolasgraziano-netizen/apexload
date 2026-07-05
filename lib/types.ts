@@ -35,6 +35,7 @@ export interface Exercise {
   name: string;
   is_custom: boolean;
   is_unilateral: boolean; // trained one side at a time, e.g. single-arm pulldown
+  is_cardio: boolean; // logged by duration + notes instead of sets of reps/weight
   default_rest_seconds: number;
 }
 
@@ -97,6 +98,8 @@ export interface LoggedSet {
   superset_group_id: string | null;
   superset_cycle: number | null;
   side: SetSide | null;
+  duration_seconds: number | null; // cardio: session length, in place of reps/weight
+  notes: string | null; // cardio: intensity/style (incline, resistance, etc.)
 }
 
 // A rotating group of 2-3 exercises alternated between sets, with a short

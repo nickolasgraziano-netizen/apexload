@@ -22,6 +22,8 @@ interface ExerciseDetail {
     weight: number | null;
     variant: string;
     side: string | null;
+    durationSeconds: number | null;
+    setNotes: string | null;
   }[];
 }
 
@@ -82,7 +84,9 @@ export default function HistoryPage() {
     const supabase = createClient();
     const { data: setRows } = await supabase
       .from("sets")
-      .select("actual_reps, weight, training_variant, side, logged_at, exercises ( name )")
+      .select(
+        "actual_reps, weight, training_variant, side, duration_seconds, notes, logged_at, exercises ( name )"
+      )
       .eq("session_id", sessionId)
       .order("logged_at");
 
@@ -99,6 +103,8 @@ export default function HistoryPage() {
         weight: s.weight,
         variant: s.training_variant,
         side: s.side,
+        durationSeconds: s.duration_seconds,
+        setNotes: s.notes,
       });
     }
     setDetailsCache((prev) => ({ ...prev, [sessionId]: grouped }));
@@ -342,18 +348,28 @@ export default function HistoryPage() {
                           {entry.exerciseName}
                         </p>
                         <div className="mt-1 flex flex-wrap gap-2">
-                          {entry.sets.map((s, si) => (
-                            <span
-                              key={si}
-                              className="rounded-md bg-steel-800 px-2 py-1 font-mono text-xs text-chalk-300"
-                            >
-                              {s.reps ?? "—"}×{s.weight ?? "—"}
-                              {s.side && ` ${s.side === "left" ? "L" : "R"}`}
-                              {s.variant === "tut" && (
-                                <span className="ml-1 text-tungsten-400">TUT</span>
-                              )}
-                            </span>
-                          ))}
+                          {entry.sets.map((s, si) =>
+                            s.durationSeconds != null ? (
+                              <span
+                                key={si}
+                                className="rounded-md bg-steel-800 px-2 py-1 font-mono text-xs text-chalk-300"
+                              >
+                                {Math.round(s.durationSeconds / 60)} min
+                                {s.setNotes && ` · ${s.setNotes}`}
+                              </span>
+                            ) : (
+                              <span
+                                key={si}
+                                className="rounded-md bg-steel-800 px-2 py-1 font-mono text-xs text-chalk-300"
+                              >
+                                {s.reps ?? "—"}×{s.weight ?? "—"}
+                                {s.side && ` ${s.side === "left" ? "L" : "R"}`}
+                                {s.variant === "tut" && (
+                                  <span className="ml-1 text-tungsten-400">TUT</span>
+                                )}
+                              </span>
+                            )
+                          )}
                         </div>
                       </div>
                     ))

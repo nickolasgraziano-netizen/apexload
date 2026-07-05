@@ -17,6 +17,8 @@ interface SetEntry {
 interface ExerciseEntry {
   exercise: Exercise;
   sets: SetEntry[];
+  cardioDurationMinutes: string;
+  cardioNotes: string;
 }
 
 const DEFAULT_SET: SetEntry = {
@@ -74,11 +76,22 @@ export default function LogPastWorkoutPage() {
         ? prev
         : [
             ...prev,
-            { exercise: ex, sets: [{ ...DEFAULT_SET, side: ex.is_unilateral ? "right" : null }] },
+            {
+              exercise: ex,
+              sets: ex.is_cardio ? [] : [{ ...DEFAULT_SET, side: ex.is_unilateral ? "right" : null }],
+              cardioDurationMinutes: "",
+              cardioNotes: "",
+            },
           ]
     );
     setShowPicker(false);
     setPickerQuery("");
+  }
+
+  function updateCardioEntry(exerciseId: string, patch: Partial<Pick<ExerciseEntry, "cardioDurationMinutes" | "cardioNotes">>) {
+    setEntries((prev) =>
+      prev.map((e) => (e.exercise.id === exerciseId ? { ...e, ...patch } : e))
+    );
   }
 
   async function addCustomExercise() {
@@ -171,10 +184,47 @@ export default function LogPastWorkoutPage() {
     }
 
     let minuteOffset = 0;
-    const rows = entries.flatMap((entry) =>
-      entry.sets.map((s, i) => {
+    const rows: {
+      session_id: string;
+      user_id: string;
+      exercise_id: string;
+      training_variant: TrainingVariant;
+      set_number: number;
+      target_reps: number;
+      actual_reps: number | null;
+      weight: number | null;
+      difficulty: SetDifficulty | null;
+      side: SetSide | null;
+      duration_seconds: number | null;
+      notes: string | null;
+      logged_at: string;
+    }[] = [];
+    for (const entry of entries) {
+      if (entry.exercise.is_cardio) {
         minuteOffset += 1;
-        return {
+        const minutes = Number(entry.cardioDurationMinutes);
+        const durationSeconds = Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes * 60) : null;
+        rows.push({
+          session_id: session.id,
+          user_id: user.id,
+          exercise_id: entry.exercise.id,
+          training_variant: "standard",
+          set_number: 1,
+          target_reps: 0,
+          actual_reps: null,
+          weight: null,
+          difficulty: null,
+          side: null,
+          duration_seconds: durationSeconds,
+          notes: entry.cardioNotes.trim() || null,
+          logged_at: new Date(startedAt.getTime() + minuteOffset * 60 * 1000).toISOString(),
+        });
+        continue;
+      }
+
+      entry.sets.forEach((s, i) => {
+        minuteOffset += 1;
+        rows.push({
           session_id: session.id,
           user_id: user.id,
           exercise_id: entry.exercise.id,
@@ -185,10 +235,12 @@ export default function LogPastWorkoutPage() {
           weight: s.weight,
           difficulty: s.difficulty,
           side: s.side,
+          duration_seconds: null,
+          notes: null,
           logged_at: new Date(startedAt.getTime() + minuteOffset * 60 * 1000).toISOString(),
-        };
-      })
-    );
+        });
+      });
+    }
     await supabase.from("sets").insert(rows);
 
     router.push("/history");
@@ -256,6 +308,33 @@ export default function LogPastWorkoutPage() {
                 Remove
               </button>
             </div>
+            {entry.exercise.is_cardio ? (
+              <div className="mt-3 flex flex-col gap-2">
+                <label className="flex flex-col gap-1">
+                  <span className="font-mono text-xs text-chalk-500">Duration (minutes)</span>
+                  <input
+                    type="number"
+                    value={entry.cardioDurationMinutes}
+                    onChange={(e) =>
+                      updateCardioEntry(entry.exercise.id, { cardioDurationMinutes: e.target.value })
+                    }
+                    className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="font-mono text-xs text-chalk-500">
+                    Notes (intensity, incline, etc.)
+                  </span>
+                  <textarea
+                    value={entry.cardioNotes}
+                    onChange={(e) => updateCardioEntry(entry.exercise.id, { cardioNotes: e.target.value })}
+                    rows={2}
+                    placeholder="e.g. Incline 5, resistance 8"
+                    className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
+                  />
+                </label>
+              </div>
+            ) : (
             <div className="mt-3 flex flex-col gap-2">
               {entry.sets.map((s, i) => (
                 <div key={i} className="flex items-center gap-2">
@@ -327,6 +406,7 @@ export default function LogPastWorkoutPage() {
                 + Add set
               </button>
             </div>
+            )}
           </div>
         ))}
       </div>

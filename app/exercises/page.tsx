@@ -12,6 +12,7 @@ export default function ExerciseCatalogPage() {
   const [newName, setNewName] = useState("");
   const [newGroupId, setNewGroupId] = useState("");
   const [newIsUnilateral, setNewIsUnilateral] = useState(false);
+  const [newIsCardio, setNewIsCardio] = useState(false);
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
   const [userId, setUserId] = useState<string | null>(null);
@@ -75,9 +76,11 @@ export default function ExerciseCatalogPage() {
       name: newName.trim(),
       is_custom: true,
       is_unilateral: newIsUnilateral,
+      is_cardio: newIsCardio,
     });
     setNewName("");
     setNewIsUnilateral(false);
+    setNewIsCardio(false);
     refresh();
   }
 
@@ -87,6 +90,12 @@ export default function ExerciseCatalogPage() {
     setExercises((prev) =>
       prev.map((e) => (e.id === ex.id ? { ...e, is_unilateral: !e.is_unilateral } : e))
     );
+  }
+
+  async function toggleCardio(ex: Exercise) {
+    const supabase = createClient();
+    await supabase.from("exercises").update({ is_cardio: !ex.is_cardio }).eq("id", ex.id);
+    setExercises((prev) => prev.map((e) => (e.id === ex.id ? { ...e, is_cardio: !e.is_cardio } : e)));
   }
 
   async function uploadMachinePhoto(exerciseId: string, file: File) {
@@ -154,6 +163,14 @@ export default function ExerciseCatalogPage() {
             />
             Unilateral (train each side separately)
           </label>
+          <label className="flex items-center gap-2 text-sm text-chalk-300">
+            <input
+              type="checkbox"
+              checked={newIsCardio}
+              onChange={(e) => setNewIsCardio(e.target.checked)}
+            />
+            Cardio (logged by duration, not sets)
+          </label>
           <button
             onClick={addCustomExercise}
             className="rounded-lg bg-copper-500 py-2 text-sm font-semibold text-steel-950"
@@ -188,12 +205,23 @@ export default function ExerciseCatalogPage() {
                       Per side
                     </span>
                   )}
+                  {ex.is_cardio && (
+                    <span className="font-mono text-[10px] uppercase text-tungsten-400">Cardio</span>
+                  )}
                   {ex.owner_id === userId && (
                     <button
                       onClick={() => toggleUnilateral(ex)}
                       className="font-mono text-[10px] uppercase text-chalk-500 underline"
                     >
                       {ex.is_unilateral ? "Make bilateral" : "Make unilateral"}
+                    </button>
+                  )}
+                  {ex.owner_id === userId && (
+                    <button
+                      onClick={() => toggleCardio(ex)}
+                      className="font-mono text-[10px] uppercase text-chalk-500 underline"
+                    >
+                      {ex.is_cardio ? "Unmark cardio" : "Mark as cardio"}
                     </button>
                   )}
                 </div>

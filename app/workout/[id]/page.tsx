@@ -74,6 +74,12 @@ export default function ActiveWorkoutPage() {
   const [showNotes, setShowNotes] = useState(false);
   const [notes, setNotes] = useState("");
 
+  // Cardio exercises (elliptical, stairmaster, etc.) log a single
+  // duration + intensity-notes entry per session instead of sets.
+  const [cardioDurationMinutes, setCardioDurationMinutes] = useState("");
+  const [cardioNotes, setCardioNotes] = useState("");
+  const [cardioEditing, setCardioEditing] = useState(false);
+
   // Exercises the lifter skipped this session (e.g. machine unavailable) —
   // kept per-session so we can prompt to circle back before ending.
   const [skippedIds, setSkippedIds] = useState<string[]>([]);
@@ -96,6 +102,7 @@ export default function ActiveWorkoutPage() {
   const activeGroup = activeExercise
     ? supersetGroups.find((g) => g.exerciseIds.includes(activeExercise.id))
     : undefined;
+  const cardioEntry = sessionSets[0];
 
   function updateDraft(patch: Partial<SetDraft>) {
     if (!activeExercise) return;
@@ -280,6 +287,66 @@ export default function ActiveWorkoutPage() {
     if (!activeExercise) return;
     setSkippedIds((prev) => (prev.includes(activeExercise.id) ? prev : [...prev, activeExercise.id]));
     goToNextExercise();
+  }
+
+  // Sync the cardio form to whichever entry (if any) exists for the active
+  // exercise — keyed on ids rather than the object itself so it doesn't
+  // reset mid-edit if sessionSets happens to re-render for another reason.
+  useEffect(() => {
+    if (!activeExercise?.is_cardio) return;
+    if (cardioEntry) {
+      setCardioDurationMinutes(
+        cardioEntry.duration_seconds != null ? String(Math.round(cardioEntry.duration_seconds / 60)) : ""
+      );
+      setCardioNotes(cardioEntry.notes ?? "");
+      setCardioEditing(false);
+    } else {
+      setCardioDurationMinutes("");
+      setCardioNotes("");
+      setCardioEditing(true);
+    }
+  }, [activeExercise?.id, cardioEntry?.id]);
+
+  async function saveCardio() {
+    if (!activeExercise || !userId) return;
+    const supabase = createClient();
+    const minutes = Number(cardioDurationMinutes);
+    const durationSeconds = Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes * 60) : null;
+    const trimmedNotes = cardioNotes.trim() || null;
+
+    if (cardioEntry) {
+      await supabase
+        .from("sets")
+        .update({ duration_seconds: durationSeconds, notes: trimmedNotes })
+        .eq("id", cardioEntry.id);
+      setSessionSets((prev) =>
+        prev.map((s) =>
+          s.id === cardioEntry.id ? { ...s, duration_seconds: durationSeconds, notes: trimmedNotes } : s
+        )
+      );
+    } else {
+      const { data: newSet } = await supabase
+        .from("sets")
+        .insert({
+          session_id: sessionId,
+          user_id: userId,
+          exercise_id: activeExercise.id,
+          training_variant: "standard",
+          set_number: 1,
+          target_reps: 0,
+          actual_reps: null,
+          weight: null,
+          difficulty: null,
+          duration_seconds: durationSeconds,
+          notes: trimmedNotes,
+        })
+        .select()
+        .single();
+      if (newSet) setSessionSets((prev) => [...prev, newSet as LoggedSet]);
+    }
+
+    setSkippedIds((prev) => prev.filter((id) => id !== activeExercise.id));
+    setCardioEditing(false);
   }
 
   async function logSet() {
@@ -805,6 +872,77 @@ export default function ActiveWorkoutPage() {
             </button>
           </div>
 
+          {activeExercise.is_cardio ? (
+            <div className="mt-4 rounded-xl border border-steel-700 bg-steel-900 p-4">
+              {cardioEditing ? (
+                <>
+                  <label className="flex flex-col gap-1">
+                    <span className="font-mono text-xs text-chalk-500">Duration (minutes)</span>
+                    <input
+                      type="number"
+                      autoFocus
+                      value={cardioDurationMinutes}
+                      onChange={(e) => setCardioDurationMinutes(e.target.value)}
+                      className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
+                    />
+                  </label>
+                  <label className="mt-3 flex flex-col gap-1">
+                    <span className="font-mono text-xs text-chalk-500">
+                      Notes (intensity, incline, etc.)
+                    </span>
+                    <textarea
+                      value={cardioNotes}
+                      onChange={(e) => setCardioNotes(e.target.value)}
+                      rows={3}
+                      placeholder="e.g. Incline 5, resistance 8"
+                      className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
+                    />
+                  </label>
+                  <button
+                    onClick={saveCardio}
+                    disabled={!cardioDurationMinutes}
+                    className="mt-3 w-full rounded-xl bg-copper-500 py-3 font-semibold text-steel-950 disabled:opacity-50"
+                  >
+                    Save
+                  </button>
+                  {!cardioEntry && plannedExercises.length > 1 && (
+                    <button
+                      onClick={skipExercise}
+                      className="mt-2 w-full rounded-xl border border-dashed border-steel-600 py-3 font-semibold text-chalk-500"
+                    >
+                      Skip this exercise (machine unavailable)
+                    </button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-chalk-100">
+                    {Math.round((cardioEntry?.duration_seconds ?? 0) / 60)} min
+                  </p>
+                  {cardioEntry?.notes && (
+                    <p className="mt-1 text-sm text-chalk-300">{cardioEntry.notes}</p>
+                  )}
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={() => setCardioEditing(true)}
+                      className="flex-1 rounded-xl border border-steel-600 py-3 font-semibold text-chalk-300"
+                    >
+                      Edit
+                    </button>
+                    {plannedExercises.length > 1 && (
+                      <button
+                        onClick={goToNextExercise}
+                        className="flex-1 rounded-xl bg-copper-500 py-3 font-semibold text-steel-950"
+                      >
+                        Next exercise
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <>
           {prevWeekForExercise.length > 0 && (
             <div className="mt-2 rounded-xl border border-steel-700 bg-steel-900 p-3">
               <p className="font-mono text-[10px] uppercase tracking-widest text-chalk-500">
@@ -986,6 +1124,8 @@ export default function ActiveWorkoutPage() {
                 Log set
               </button>
             </div>
+          )}
+            </>
           )}
         </>
       )}
