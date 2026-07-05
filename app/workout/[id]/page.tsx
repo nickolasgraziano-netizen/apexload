@@ -74,6 +74,11 @@ export default function ActiveWorkoutPage() {
   const [showNotes, setShowNotes] = useState(false);
   const [notes, setNotes] = useState("");
 
+  // Exercises the lifter skipped this session (e.g. machine unavailable) —
+  // kept per-session so we can prompt to circle back before ending.
+  const [skippedIds, setSkippedIds] = useState<string[]>([]);
+  const [showEndPrompt, setShowEndPrompt] = useState(false);
+
   // Supersets: 2-3 exercise tabs rotated between sets. Grouping can be
   // created here on the fly (select tabs) or arrive pre-made from workout/new.
   const [supersetGroups, setSupersetGroups] = useState<SupersetGroupView[]>([]);
@@ -127,6 +132,10 @@ export default function ActiveWorkoutPage() {
         .single();
       setSession(sess as WorkoutSession);
       setNotes((sess as WorkoutSession)?.notes ?? "");
+
+      setSkippedIds(
+        JSON.parse(sessionStorage.getItem(`apexload:skipped:${sessionId}`) ?? "[]")
+      );
 
       const planIds: string[] = JSON.parse(
         sessionStorage.getItem(`apexload:plan:${sessionId}`) ?? "[]"
@@ -252,6 +261,27 @@ export default function ActiveWorkoutPage() {
     );
   }, [plannedExercises, sessionId]);
 
+  useEffect(() => {
+    if (!sessionId) return;
+    sessionStorage.setItem(`apexload:skipped:${sessionId}`, JSON.stringify(skippedIds));
+  }, [skippedIds, sessionId]);
+
+  function goToExercise(index: number) {
+    setActiveIndex(index);
+    setJustLoggedSet(false);
+  }
+
+  function goToNextExercise() {
+    if (plannedExercises.length < 2) return;
+    goToExercise((activeIndex + 1) % plannedExercises.length);
+  }
+
+  function skipExercise() {
+    if (!activeExercise) return;
+    setSkippedIds((prev) => (prev.includes(activeExercise.id) ? prev : [...prev, activeExercise.id]));
+    goToNextExercise();
+  }
+
   async function logSet() {
     if (!activeExercise || !userId) return;
     const supabase = createClient();
@@ -287,6 +317,9 @@ export default function ActiveWorkoutPage() {
       .single();
 
     if (newSet) setSessionSets((prev) => [...prev, newSet as LoggedSet]);
+
+    // Actually doing the exercise after all un-skips it.
+    setSkippedIds((prev) => prev.filter((id) => id !== activeExercise.id));
 
     // Alternate sides automatically — right then left, matching how a set
     // of unilateral work is actually performed.
@@ -327,10 +360,25 @@ export default function ActiveWorkoutPage() {
     await supabase.from("sessions").update({ notes: trimmed }).eq("id", sessionId);
   }
 
-  async function endWorkout() {
+  function requestEndWorkout() {
+    if (skippedIds.length > 0) {
+      setShowEndPrompt(true);
+      return;
+    }
+    finishWorkout();
+  }
+
+  async function finishWorkout() {
     const supabase = createClient();
     await supabase.from("sessions").update({ ended_at: new Date().toISOString() }).eq("id", sessionId);
+    sessionStorage.removeItem(`apexload:skipped:${sessionId}`);
     router.push("/");
+  }
+
+  function resumeSkippedExercise(exerciseId: string) {
+    const index = plannedExercises.findIndex((e) => e.id === exerciseId);
+    if (index !== -1) goToExercise(index);
+    setShowEndPrompt(false);
   }
 
   async function saveAsTemplate() {
@@ -461,10 +509,48 @@ export default function ActiveWorkoutPage() {
             Save as template
           </button>
         )}
-        <button onClick={endWorkout} className="font-mono text-xs text-copper-400">
+        <button onClick={requestEndWorkout} className="font-mono text-xs text-copper-400">
           End workout
         </button>
       </div>
+
+      {showEndPrompt && (
+        <div className="mt-3 rounded-xl border border-tungsten-500 bg-tungsten-600/10 p-4">
+          <p className="text-sm text-tungsten-400">
+            You skipped {skippedIds.length === 1 ? "an exercise" : `${skippedIds.length} exercises`}{" "}
+            this workout:
+          </p>
+          <div className="mt-2 flex flex-col gap-2">
+            {skippedIds.map((id) => {
+              const ex = plannedExercises.find((e) => e.id === id);
+              if (!ex) return null;
+              return (
+                <button
+                  key={id}
+                  onClick={() => resumeSkippedExercise(id)}
+                  className="rounded-lg border border-steel-600 px-3 py-2 text-left text-sm text-chalk-100"
+                >
+                  Do {ex.name} now
+                </button>
+              );
+            })}
+          </div>
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={finishWorkout}
+              className="flex-1 rounded-lg bg-copper-500 px-3 py-2 text-xs font-semibold text-steel-950"
+            >
+              Finish workout anyway
+            </button>
+            <button
+              onClick={() => setShowEndPrompt(false)}
+              className="rounded-lg border border-steel-600 px-3 py-2 text-xs text-chalk-300"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {showNotes && (
         <div className="mt-3 rounded-xl border border-steel-700 bg-steel-900 p-4">
@@ -569,6 +655,7 @@ export default function ActiveWorkoutPage() {
                   }`}
                 >
                   {inGroup && !groupingMode && "⚡ "}
+                  {skippedIds.includes(ex.id) && "⏭ "}
                   {ex.name}
                 </button>
               );
@@ -831,6 +918,22 @@ export default function ActiveWorkoutPage() {
                 >
                   Add another set
                 </button>
+                {plannedExercises.length > 1 && (
+                  <button
+                    onClick={goToNextExercise}
+                    className="w-full rounded-xl border border-steel-600 py-3 font-semibold text-chalk-300"
+                  >
+                    Next exercise
+                  </button>
+                )}
+                {plannedExercises.length > 1 && (
+                  <button
+                    onClick={skipExercise}
+                    className="w-full rounded-xl border border-dashed border-steel-600 py-3 font-semibold text-chalk-500"
+                  >
+                    Skip this exercise (machine unavailable)
+                  </button>
+                )}
                 <button
                   onClick={() => router.push("/")}
                   className="w-full rounded-xl border border-steel-600 py-3 font-semibold text-chalk-300"

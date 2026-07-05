@@ -2,10 +2,13 @@ export type TrainingVariant = "standard" | "tut";
 export type SetDifficulty = "easy" | "moderate" | "difficult" | "failed";
 export type SetSide = "left" | "right";
 
-// Global taxonomy — shared across all users, not user-owned.
+// Shared taxonomy — either global (owner_id null, is_global true) or a
+// user-created custom group (e.g. "Cardio", "Elliptical", "Stair Climber").
 export interface MuscleGroup {
   id: string;
   name: string;
+  owner_id: string | null;
+  is_global: boolean;
 }
 
 export interface SubMuscle {

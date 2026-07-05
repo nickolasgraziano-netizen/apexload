@@ -2,9 +2,27 @@ import { describe, expect, it } from "vitest";
 import { predictNextMuscleGroup } from "@/lib/rotation";
 import type { OrderedMuscleGroup, WorkoutSession } from "@/lib/types";
 
-const legs: OrderedMuscleGroup = { id: "legs", name: "Legs", sort_order: 0 };
-const chest: OrderedMuscleGroup = { id: "chest", name: "Chest", sort_order: 1 };
-const shoulders: OrderedMuscleGroup = { id: "shoulders", name: "Shoulders", sort_order: 2 };
+const legs: OrderedMuscleGroup = {
+  id: "legs",
+  name: "Legs",
+  owner_id: null,
+  is_global: true,
+  sort_order: 0,
+};
+const chest: OrderedMuscleGroup = {
+  id: "chest",
+  name: "Chest",
+  owner_id: null,
+  is_global: true,
+  sort_order: 1,
+};
+const shoulders: OrderedMuscleGroup = {
+  id: "shoulders",
+  name: "Shoulders",
+  owner_id: null,
+  is_global: true,
+  sort_order: 2,
+};
 const groups = [chest, shoulders, legs]; // intentionally out of sort_order
 
 function sessionFor(muscleGroupId: string): WorkoutSession {

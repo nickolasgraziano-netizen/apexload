@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import MuscleGroupSelect from "@/components/MuscleGroupSelect";
 import type { Exercise, MuscleGroup } from "@/lib/types";
 
 export default function ExerciseCatalogPage() {
@@ -137,18 +138,14 @@ export default function ExerciseCatalogPage() {
             onChange={(e) => setNewName(e.target.value)}
             className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
           />
-          <select
+          <MuscleGroupSelect
+            groups={groups}
             value={newGroupId}
-            onChange={(e) => setNewGroupId(e.target.value)}
+            onChange={setNewGroupId}
+            onGroupCreated={(g) => setGroups((prev) => [...prev, g])}
+            userId={userId}
             className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
-          >
-            <option value="">Muscle group…</option>
-            {groups.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
-              </option>
-            ))}
-          </select>
+          />
           <label className="flex items-center gap-2 text-sm text-chalk-300">
             <input
               type="checkbox"

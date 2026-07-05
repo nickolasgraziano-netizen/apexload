@@ -23,12 +23,14 @@ export default async function DashboardPage() {
   // taxonomy — one query, sorted the way this user has arranged their split.
   const { data: rotation } = await supabase
     .from("user_rotation")
-    .select("sort_order, muscle_groups ( id, name )")
+    .select("sort_order, muscle_groups ( id, name, owner_id, is_global )")
     .order("sort_order");
 
   const muscleGroups: OrderedMuscleGroup[] = (rotation ?? []).map((r: any) => ({
     id: r.muscle_groups.id,
     name: r.muscle_groups.name,
+    owner_id: r.muscle_groups.owner_id,
+    is_global: r.muscle_groups.is_global,
     sort_order: r.sort_order,
   }));
 

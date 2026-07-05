@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import MuscleGroupSelect from "@/components/MuscleGroupSelect";
 import type { Exercise, MuscleGroup, SetDifficulty, SetSide, TrainingVariant } from "@/lib/types";
 
 interface SetEntry {
@@ -36,9 +37,11 @@ export default function LogPastWorkoutPage() {
   const router = useRouter();
   const [date, setDate] = useState(todayLocal());
   const [notes, setNotes] = useState("");
+  const [name, setName] = useState("");
   const [entries, setEntries] = useState<ExerciseEntry[]>([]);
   const [saving, setSaving] = useState(false);
 
+  const [userId, setUserId] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<(Exercise & { muscle_groups: { name: string } | null })[]>([]);
   const [groups, setGroups] = useState<MuscleGroup[]>([]);
   const [showPicker, setShowPicker] = useState(false);
@@ -50,6 +53,11 @@ export default function LogPastWorkoutPage() {
   useEffect(() => {
     const supabase = createClient();
     (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) setUserId(user.id);
+
       const { data: mg } = await supabase.from("muscle_groups").select("*").order("name");
       setGroups((mg ?? []) as MuscleGroup[]);
       const { data: ex } = await supabase
@@ -149,6 +157,7 @@ export default function LogPastWorkoutPage() {
       .insert({
         user_id: user.id,
         muscle_group_id: null,
+        name: name.trim() || null,
         started_at: startedAt.toISOString(),
         ended_at: endedAt.toISOString(),
         notes: notes.trim() || null,
@@ -200,6 +209,18 @@ export default function LogPastWorkoutPage() {
       </p>
 
       <label className="mt-5 flex flex-col gap-1">
+        <span className="font-mono text-xs uppercase tracking-widest text-chalk-500">
+          Name (optional)
+        </span>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. Push Day"
+          className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
+        />
+      </label>
+
+      <label className="mt-4 flex flex-col gap-1">
         <span className="font-mono text-xs uppercase tracking-widest text-chalk-500">Date</span>
         <input
           type="date"
@@ -371,18 +392,14 @@ export default function LogPastWorkoutPage() {
                 onChange={(e) => setNewName(e.target.value)}
                 className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
               />
-              <select
+              <MuscleGroupSelect
+                groups={groups}
                 value={newGroupId}
-                onChange={(e) => setNewGroupId(e.target.value)}
+                onChange={setNewGroupId}
+                onGroupCreated={(g) => setGroups((prev) => [...prev, g])}
+                userId={userId}
                 className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
-              >
-                <option value="">Muscle group…</option>
-                {groups.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
-                  </option>
-                ))}
-              </select>
+              />
               <button
                 onClick={addCustomExercise}
                 className="rounded-lg bg-copper-500 py-2 text-sm font-semibold text-steel-950"
