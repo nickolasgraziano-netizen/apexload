@@ -1084,6 +1084,15 @@ export default function ActiveWorkoutPage() {
                     Next exercise
                   </button>
                 )}
+                <button
+                  onClick={() => {
+                    setJustLoggedSet(false);
+                    openPicker();
+                  }}
+                  className="w-full rounded-xl border border-steel-600 py-3 font-semibold text-chalk-300"
+                >
+                  Switch exercise
+                </button>
                 {plannedExercises.length > 1 && (
                   <button
                     onClick={skipExercise}
