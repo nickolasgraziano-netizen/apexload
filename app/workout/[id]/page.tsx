@@ -1096,7 +1096,7 @@ export default function ActiveWorkoutPage() {
                   onClick={() => router.push("/")}
                   className="w-full rounded-xl border border-steel-600 py-3 font-semibold text-chalk-300"
                 >
-                  Pick a muscle
+                  Back to Home
                 </button>
               </div>
             </div>
