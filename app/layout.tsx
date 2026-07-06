@@ -1,12 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Ma_Shan_Zheng, Manrope, IBM_Plex_Mono } from "next/font/google";
+import { Barlow_Condensed, Manrope, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 
-// Brush-calligraphy display font for headings only — body/mono text stays
-// on the original clean, readable faces below.
-const display = Ma_Shan_Zheng({
+const display = Barlow_Condensed({
   subsets: ["latin"],
-  weight: ["400"],
+  weight: ["600", "700", "800"],
   variable: "--font-display",
 });
 
