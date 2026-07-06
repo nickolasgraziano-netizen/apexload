@@ -107,19 +107,19 @@ export default async function DashboardPage() {
         <div className="flex flex-wrap gap-2">
           <Link
             href="/progress"
-            className="rounded-lg border border-steel-600 px-3 py-1.5 font-mono text-xs text-chalk-300"
+            className="rounded-lg border border-steel-600/60 bg-steel-900/40 px-3 py-1.5 font-mono text-xs text-chalk-300 backdrop-blur-md"
           >
             Progress
           </Link>
           <Link
             href="/history"
-            className="rounded-lg border border-steel-600 px-3 py-1.5 font-mono text-xs text-chalk-300"
+            className="rounded-lg border border-steel-600/60 bg-steel-900/40 px-3 py-1.5 font-mono text-xs text-chalk-300 backdrop-blur-md"
           >
             History
           </Link>
           <Link
             href="/exercises"
-            className="rounded-lg border border-steel-600 px-3 py-1.5 font-mono text-xs text-chalk-300"
+            className="rounded-lg border border-steel-600/60 bg-steel-900/40 px-3 py-1.5 font-mono text-xs text-chalk-300 backdrop-blur-md"
           >
             Catalog
           </Link>
@@ -130,7 +130,7 @@ export default async function DashboardPage() {
       <section className="flex flex-col gap-2">
         <Link
           href="/workout/new"
-          className="flex items-center justify-between rounded-xl border border-steel-700 bg-steel-900 px-4 py-3"
+          className="flex items-center justify-between rounded-xl border border-steel-700/60 bg-steel-900/60 px-4 py-3 backdrop-blur-md"
         >
           <div>
             <p className="text-chalk-100">Start a new workout</p>
@@ -142,7 +142,7 @@ export default async function DashboardPage() {
         </Link>
         <Link
           href="/history"
-          className="flex items-center justify-between rounded-xl border border-steel-700 bg-steel-900 px-4 py-3"
+          className="flex items-center justify-between rounded-xl border border-steel-700/60 bg-steel-900/60 px-4 py-3 backdrop-blur-md"
         >
           <div>
             <p className="text-chalk-100">Repeat a past workout</p>
@@ -152,7 +152,7 @@ export default async function DashboardPage() {
         </Link>
         <Link
           href="/workout/import"
-          className="flex items-center justify-between rounded-xl border border-steel-700 bg-steel-900 px-4 py-3"
+          className="flex items-center justify-between rounded-xl border border-steel-700/60 bg-steel-900/60 px-4 py-3 backdrop-blur-md"
         >
           <div>
             <p className="text-chalk-100">Log past workouts</p>
@@ -171,7 +171,7 @@ export default async function DashboardPage() {
           {openSessions.map((s: any) => (
             <div
               key={s.id}
-              className="flex items-center justify-between rounded-xl border border-tungsten-500 bg-tungsten-600/10 px-4 py-3"
+              className="flex items-center justify-between rounded-xl border border-tungsten-500/60 bg-tungsten-600/10 px-4 py-3 backdrop-blur-md"
             >
               <Link href={`/workout/${s.id}`} className="flex-1">
                 <p className="text-chalk-100">
@@ -205,7 +205,7 @@ export default async function DashboardPage() {
           Last session
         </h3>
         {lastSession ? (
-          <div className="mt-2 rounded-2xl border border-steel-700 bg-steel-900 p-4">
+          <div className="mt-2 rounded-2xl border border-steel-700/60 bg-steel-900/60 p-4 backdrop-blur-md">
             <p className="font-body text-chalk-100">
               {muscleGroups.find((g) => g.id === (lastSession as WorkoutSession).muscle_group_id)
                 ?.name ?? "Unknown group"}

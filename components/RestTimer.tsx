@@ -45,7 +45,7 @@ export default function RestTimer({ defaultSeconds = 90, message, onDismiss }: P
   const pct = Math.min(100, Math.round(((defaultSeconds - remaining) / defaultSeconds) * 100));
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-steel-700 bg-steel-900/95 px-5 pb-6 pt-4 backdrop-blur">
+    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-steel-700/70 bg-steel-900/85 px-5 pb-6 pt-4 backdrop-blur-lg">
       <div className="mb-3 h-1 w-full overflow-hidden rounded-full bg-steel-700">
         <div
           className="h-full bg-tungsten-500 transition-all duration-300"

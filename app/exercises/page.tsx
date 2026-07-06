@@ -298,7 +298,7 @@ export default function ExerciseCatalogPage() {
 
       {enlargedExerciseId && photoUrls[enlargedExerciseId] && (
         <div
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-black/90 p-5"
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-steel-950/70 p-5 backdrop-blur-lg"
           onClick={() => setEnlargedExerciseId(null)}
         >
           <img

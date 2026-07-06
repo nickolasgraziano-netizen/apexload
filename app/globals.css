@@ -12,6 +12,15 @@
     background: theme("colors.copper.500");
     color: theme("colors.steel.950");
   }
+
+  /* Soft, fixed glow so translucent/backdrop-blur panels have something
+     visible to blend with, instead of blurring a flat solid color. */
+  body {
+    background-image:
+      radial-gradient(600px circle at 85% 0%, rgb(255 212 0 / 0.08), transparent 60%),
+      radial-gradient(500px circle at 0% 100%, rgb(227 66 52 / 0.06), transparent 60%);
+    background-attachment: fixed;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

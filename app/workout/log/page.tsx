@@ -52,6 +52,8 @@ export default function LogPastWorkoutPage() {
   const [pickerGroupId, setPickerGroupId] = useState("");
   const [newName, setNewName] = useState("");
   const [newGroupId, setNewGroupId] = useState("");
+  const [newIsCardio, setNewIsCardio] = useState(false);
+  const [newIsUnilateral, setNewIsUnilateral] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -109,7 +111,14 @@ export default function LogPastWorkoutPage() {
 
     const { data: newExercise } = await supabase
       .from("exercises")
-      .insert({ owner_id: user.id, muscle_group_id: newGroupId, name: newName.trim(), is_custom: true })
+      .insert({
+        owner_id: user.id,
+        muscle_group_id: newGroupId,
+        name: newName.trim(),
+        is_custom: true,
+        is_cardio: newIsCardio,
+        is_unilateral: newIsUnilateral,
+      })
       .select()
       .single();
 
@@ -119,6 +128,8 @@ export default function LogPastWorkoutPage() {
       addExercise(newExercise as Exercise);
     }
     setNewName("");
+    setNewIsCardio(false);
+    setNewIsUnilateral(false);
   }
 
   function removeExercise(exerciseId: string) {
@@ -501,6 +512,22 @@ export default function LogPastWorkoutPage() {
                 userId={userId}
                 className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
               />
+              <label className="flex items-center gap-2 text-sm text-chalk-300">
+                <input
+                  type="checkbox"
+                  checked={newIsUnilateral}
+                  onChange={(e) => setNewIsUnilateral(e.target.checked)}
+                />
+                Unilateral (train each side separately)
+              </label>
+              <label className="flex items-center gap-2 text-sm text-chalk-300">
+                <input
+                  type="checkbox"
+                  checked={newIsCardio}
+                  onChange={(e) => setNewIsCardio(e.target.checked)}
+                />
+                Cardio (logged by duration, not sets)
+              </label>
               <button
                 onClick={addCustomExercise}
                 className="rounded-lg bg-copper-500 py-2 text-sm font-semibold text-steel-950"
