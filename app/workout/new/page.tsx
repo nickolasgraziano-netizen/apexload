@@ -1,20 +1,89 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
   averageExerciseDurationMinutes,
   estimateWorkoutDurationMinutes,
-  generateTimeConstrainedWorkout,
 } from "@/lib/timeEngine";
-import type { Exercise, LoggedSet } from "@/lib/types";
+import TemplateList from "@/components/TemplateList";
+import type { Exercise, LoggedSet, MuscleGroup, WorkoutTemplate } from "@/lib/types";
 
 export default function NewWorkoutPage() {
   return (
     <Suspense fallback={null}>
       <NewWorkoutForm />
     </Suspense>
+  );
+}
+
+// No muscle group chosen yet — let the lifter pick how to start: build a
+// fresh workout from a muscle group, relaunch a saved template, or go
+// repeat a past day from History. No suggestions, their call.
+function WorkoutChooser() {
+  const [groups, setGroups] = useState<MuscleGroup[]>([]);
+  const [templates, setTemplates] = useState<WorkoutTemplate[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+    (async () => {
+      const [{ data: mg }, { data: tpl }, { data: userRes }] = await Promise.all([
+        supabase.from("muscle_groups").select("*").order("name"),
+        supabase.from("workout_templates").select("*").order("created_at", { ascending: false }),
+        supabase.auth.getUser(),
+      ]);
+      setGroups((mg ?? []) as MuscleGroup[]);
+      setTemplates((tpl ?? []) as WorkoutTemplate[]);
+      setUserId(userRes?.user?.id ?? null);
+    })();
+  }, []);
+
+  return (
+    <main className="min-h-screen px-5 pb-24 pt-8">
+      <p className="font-mono text-xs uppercase tracking-widest text-copper-500">Set up</p>
+      <h1 className="mt-1 font-display text-3xl font-extrabold text-chalk-100">
+        Start a workout
+      </h1>
+
+      <section className="mt-6">
+        <h2 className="font-mono text-xs uppercase tracking-widest text-chalk-500">
+          Build a new workout
+        </h2>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {groups.map((g) => (
+            <Link
+              key={g.id}
+              href={`/workout/new?muscleGroupId=${g.id}`}
+              className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100"
+            >
+              {g.name}
+            </Link>
+          ))}
+        </div>
+        {groups.length === 0 && <p className="mt-2 text-sm text-chalk-500">Loading…</p>}
+      </section>
+
+      {userId && <TemplateList templates={templates} userId={userId} />}
+
+      <section className="mt-6">
+        <h2 className="font-mono text-xs uppercase tracking-widest text-chalk-500">
+          Or reuse a past workout
+        </h2>
+        <Link
+          href="/history"
+          className="mt-2 flex items-center justify-between rounded-xl border border-steel-700 bg-steel-900 px-4 py-3"
+        >
+          <div>
+            <p className="text-chalk-100">Repeat from History</p>
+            <p className="mt-0.5 text-xs text-chalk-500">Pick any day you've already done</p>
+          </div>
+          <span className="font-mono text-xs text-copper-400">→</span>
+        </Link>
+      </section>
+    </main>
   );
 }
 
@@ -26,7 +95,6 @@ function NewWorkoutForm() {
   const [muscleGroupName, setMuscleGroupName] = useState("");
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [pastSets, setPastSets] = useState<LoggedSet[]>([]);
-  const [timeLimit, setTimeLimit] = useState<string>("");
   const [selected, setSelected] = useState<Exercise[]>([]);
   const [starting, setStarting] = useState(false);
 
@@ -80,31 +148,21 @@ function NewWorkoutForm() {
     return map;
   }, [exercises, pastSets]);
 
-  const budgetMinutes = timeLimit ? Number(timeLimit) : null;
-
   useEffect(() => {
     if (exercises.length === 0) return;
 
-    if (budgetMinutes && budgetMinutes > 0) {
-      const candidates = exercises.map((exercise) => ({
-        exercise,
-        estimatedMinutes: averagesByExerciseId.get(exercise.id) ?? 8,
-      }));
-      setSelected(generateTimeConstrainedWorkout(candidates, budgetMinutes));
-    } else {
-      // Default: one exercise per sub-muscle for balanced coverage, baseline 3x15.
-      const seenSubMuscles = new Set<string>();
-      const defaultList: Exercise[] = [];
-      for (const ex of exercises) {
-        const key = ex.sub_muscle_id ?? ex.id;
-        if (!seenSubMuscles.has(key)) {
-          seenSubMuscles.add(key);
-          defaultList.push(ex);
-        }
+    // Default: one exercise per sub-muscle for balanced coverage, baseline 3x15.
+    const seenSubMuscles = new Set<string>();
+    const defaultList: Exercise[] = [];
+    for (const ex of exercises) {
+      const key = ex.sub_muscle_id ?? ex.id;
+      if (!seenSubMuscles.has(key)) {
+        seenSubMuscles.add(key);
+        defaultList.push(ex);
       }
-      setSelected(defaultList);
     }
-  }, [exercises, averagesByExerciseId, budgetMinutes]);
+    setSelected(defaultList);
+  }, [exercises]);
 
   const estimatedMinutes = useMemo(
     () =>
@@ -130,7 +188,6 @@ function NewWorkoutForm() {
       .insert({
         user_id: user.id,
         muscle_group_id: muscleGroupId,
-        time_budget_minutes: budgetMinutes,
       })
       .select()
       .single();
@@ -185,29 +242,16 @@ function NewWorkoutForm() {
     setPendingGroups((prev) => prev.filter((_, i) => i !== index));
   }
 
+  if (!muscleGroupId) {
+    return <WorkoutChooser />;
+  }
+
   return (
     <main className="min-h-screen px-5 pb-24 pt-8">
       <p className="font-mono text-xs uppercase tracking-widest text-copper-500">Set up</p>
       <h1 className="mt-1 font-display text-3xl font-extrabold text-chalk-100">
         {muscleGroupName || "Workout"}
       </h1>
-
-      <label className="mt-6 flex flex-col gap-1">
-        <span className="font-mono text-xs uppercase tracking-widest text-chalk-500">
-          Hard time limit (optional)
-        </span>
-        <input
-          type="number"
-          inputMode="numeric"
-          placeholder="e.g. 45"
-          value={timeLimit}
-          onChange={(e) => setTimeLimit(e.target.value)}
-          className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
-        />
-        <span className="mt-1 text-xs text-chalk-500">
-          Leave blank for a full balanced session across every sub-muscle.
-        </span>
-      </label>
 
       <section className="mt-6">
         <div className="flex items-center justify-between">

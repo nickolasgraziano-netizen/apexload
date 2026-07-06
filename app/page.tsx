@@ -1,8 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { predictNextMuscleGroup } from "@/lib/rotation";
 import { computeSessionsPerWeek, isoWeekStart } from "@/lib/metrics";
 import { buildMotivationalMessage, findLatestPR } from "@/lib/motivation";
-import RotationWheel from "@/components/RotationWheel";
 import LogoutButton from "@/components/LogoutButton";
 import Greeting from "@/components/Greeting";
 import TemplateList from "@/components/TemplateList";
@@ -66,8 +64,6 @@ export default async function DashboardPage() {
     .from("workout_templates")
     .select("*")
     .order("created_at", { ascending: false });
-
-  const predicted = predictNextMuscleGroup(muscleGroups, lastSession as WorkoutSession | null);
 
   // Motivational message: prefers a just-hit PR, then this week's
   // consistency against the rotation's target, then generic encouragement.
@@ -133,13 +129,13 @@ export default async function DashboardPage() {
 
       <section className="flex flex-col gap-2">
         <Link
-          href={`/workout/new?muscleGroupId=${predicted?.id ?? ""}`}
+          href="/workout/new"
           className="flex items-center justify-between rounded-xl border border-steel-700 bg-steel-900 px-4 py-3"
         >
           <div>
             <p className="text-chalk-100">Start a new workout</p>
             <p className="mt-0.5 text-xs text-chalk-500">
-              Today's suggestion: {predicted?.name ?? "—"}
+              Build it fresh, or reuse one you've done before
             </p>
           </div>
           <span className="font-mono text-xs text-copper-400">→</span>
@@ -165,10 +161,6 @@ export default async function DashboardPage() {
           <span className="font-mono text-xs text-copper-400">→</span>
         </Link>
       </section>
-
-      <div className="mt-6">
-        <RotationWheel groups={muscleGroups} predictedGroupId={predicted?.id ?? ""} />
-      </div>
 
       {/* Interrupted workouts — pick back up right where you left off */}
       {openSessions && openSessions.length > 0 && (
@@ -206,40 +198,6 @@ export default async function DashboardPage() {
       )}
 
       {user && <TemplateList templates={(templates ?? []) as WorkoutTemplate[]} userId={user.id} />}
-
-      {/* Predicted workout highlight card */}
-      <section className="mt-8 rounded-2xl border border-steel-700 bg-steel-900 p-5">
-        <p className="font-mono text-xs uppercase tracking-widest text-tungsten-400">
-          Suggested for today
-        </p>
-        <h2 className="mt-1 font-display text-3xl font-extrabold text-chalk-100">
-          {predicted?.name ?? "—"}
-        </h2>
-        <div className="mt-4 flex gap-3">
-          <Link
-            href={`/workout/new?muscleGroupId=${predicted?.id ?? ""}`}
-            className="flex-1 rounded-xl bg-copper-500 px-4 py-3 text-center font-body font-semibold text-steel-950 active:bg-copper-600"
-          >
-            Start this workout
-          </Link>
-          <details className="relative">
-            <summary className="list-none rounded-xl border border-steel-600 px-4 py-3 text-sm text-chalk-300">
-              Override
-            </summary>
-            <div className="absolute right-0 z-10 mt-2 w-48 rounded-xl border border-steel-700 bg-steel-800 p-2 shadow-xl">
-              {muscleGroups.map((g) => (
-                <Link
-                  key={g.id}
-                  href={`/workout/new?muscleGroupId=${g.id}`}
-                  className="block rounded-lg px-3 py-2 text-sm text-chalk-300 hover:bg-steel-700"
-                >
-                  {g.name}
-                </Link>
-              ))}
-            </div>
-          </details>
-        </div>
-      </section>
 
       {/* Last session lookback */}
       <section className="mt-6">
