@@ -9,6 +9,7 @@ import {
   estimateWorkoutDurationMinutes,
 } from "@/lib/timeEngine";
 import TemplateList from "@/components/TemplateList";
+import MuscleGroupSelect from "@/components/MuscleGroupSelect";
 import type { Exercise, LoggedSet, MuscleGroup, WorkoutTemplate } from "@/lib/types";
 
 export default function NewWorkoutPage() {
@@ -104,6 +105,18 @@ function NewWorkoutForm() {
   const [groupingMode, setGroupingMode] = useState(false);
   const [groupingSelection, setGroupingSelection] = useState<string[]>([]);
 
+  // Insert-from-catalog / add-custom-exercise picker — lets the lifter
+  // remove auto-planned exercises and swap in whatever they actually want,
+  // not just what's in the current muscle group.
+  const [userId, setUserId] = useState<string | null>(null);
+  const [groups, setGroups] = useState<MuscleGroup[]>([]);
+  const [catalog, setCatalog] = useState<(Exercise & { muscle_groups: { name: string } | null })[]>([]);
+  const [showPicker, setShowPicker] = useState(false);
+  const [pickerQuery, setPickerQuery] = useState("");
+  const [pickerGroupId, setPickerGroupId] = useState("");
+  const [newName, setNewName] = useState("");
+  const [newGroupId, setNewGroupId] = useState("");
+
   useEffect(() => {
     if (!muscleGroupId) return;
     const supabase = createClient();
@@ -138,6 +151,22 @@ function NewWorkoutForm() {
       }
     })();
   }, [muscleGroupId]);
+
+  // Full catalog + all muscle groups, independent of the one this workout
+  // was seeded from — the picker lets you pull in exercises from anywhere.
+  useEffect(() => {
+    const supabase = createClient();
+    (async () => {
+      const [{ data: mg }, { data: ex }, { data: userRes }] = await Promise.all([
+        supabase.from("muscle_groups").select("*").order("name"),
+        supabase.from("exercises").select("*, muscle_groups ( name )").order("name"),
+        supabase.auth.getUser(),
+      ]);
+      setGroups((mg ?? []) as MuscleGroup[]);
+      setCatalog((ex ?? []) as (Exercise & { muscle_groups: { name: string } | null })[]);
+      setUserId(userRes?.user?.id ?? null);
+    })();
+  }, []);
 
   const averagesByExerciseId = useMemo(() => {
     const map = new Map<string, number | null>();
@@ -242,6 +271,49 @@ function NewWorkoutForm() {
     setPendingGroups((prev) => prev.filter((_, i) => i !== index));
   }
 
+  function removeExercise(exerciseId: string) {
+    setSelected((prev) => prev.filter((e) => e.id !== exerciseId));
+    // Drop it from any superset it was part of; a group that falls below
+    // 2 exercises no longer makes sense as a superset.
+    setPendingGroups((prev) =>
+      prev.map((g) => g.filter((id) => id !== exerciseId)).filter((g) => g.length >= 2)
+    );
+    setGroupingSelection((prev) => prev.filter((id) => id !== exerciseId));
+  }
+
+  function addExerciseToSelected(ex: Exercise) {
+    setSelected((prev) => (prev.some((e) => e.id === ex.id) ? prev : [...prev, ex]));
+    setShowPicker(false);
+    setPickerQuery("");
+  }
+
+  async function addCustomExercise() {
+    if (!newName.trim() || !newGroupId || !userId) return;
+    const supabase = createClient();
+
+    const { data: newExercise } = await supabase
+      .from("exercises")
+      .insert({ owner_id: userId, muscle_group_id: newGroupId, name: newName.trim(), is_custom: true })
+      .select()
+      .single();
+
+    if (newExercise) {
+      const groupName = groups.find((g) => g.id === newGroupId)?.name ?? null;
+      setCatalog((prev) => [
+        ...prev,
+        { ...(newExercise as Exercise), muscle_groups: { name: groupName ?? "" } },
+      ]);
+      addExerciseToSelected(newExercise as Exercise);
+    }
+    setNewName("");
+  }
+
+  const filteredCatalog = catalog.filter(
+    (ex) =>
+      ex.name.toLowerCase().includes(pickerQuery.toLowerCase()) &&
+      (!pickerGroupId || ex.muscle_group_id === pickerGroupId)
+  );
+
   if (!muscleGroupId) {
     return <WorkoutChooser />;
   }
@@ -280,11 +352,11 @@ function NewWorkoutForm() {
             const groupIndex = pendingGroups.findIndex((g) => g.includes(ex.id));
             const selectedForGroup = groupingSelection.includes(ex.id);
             return (
-              <li key={ex.id}>
+              <li key={ex.id} className="flex items-center gap-2">
                 <button
                   disabled={!groupingMode}
                   onClick={() => toggleGroupingSelection(ex.id)}
-                  className={`flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-chalk-100 ${
+                  className={`flex flex-1 items-center justify-between rounded-xl px-4 py-3 text-left text-chalk-100 ${
                     groupingMode
                       ? selectedForGroup
                         ? "bg-tungsten-500 text-steel-950"
@@ -302,12 +374,104 @@ function NewWorkoutForm() {
                     </span>
                   )}
                 </button>
+                {!groupingMode && (
+                  <button
+                    onClick={() => removeExercise(ex.id)}
+                    className="shrink-0 rounded-xl border border-copper-600 px-3 py-3 text-copper-400"
+                  >
+                    ✕
+                  </button>
+                )}
               </li>
             );
           })}
         </ul>
         {exercises.length === 0 && (
           <p className="mt-2 text-sm text-chalk-500">Loading catalog…</p>
+        )}
+
+        {!groupingMode && (
+          <button
+            onClick={() => setShowPicker(true)}
+            className="mt-2 w-full rounded-xl border border-dashed border-steel-600 py-3 text-sm text-chalk-300"
+          >
+            + Add exercise
+          </button>
+        )}
+
+        {showPicker && (
+          <div className="mt-3 rounded-xl border border-steel-700 bg-steel-900 p-3">
+            <div className="flex items-center justify-between">
+              <p className="font-mono text-xs uppercase tracking-widest text-chalk-500">
+                Add exercise
+              </p>
+              <button onClick={() => setShowPicker(false)} className="text-xs text-chalk-500">
+                Close
+              </button>
+            </div>
+            <input
+              autoFocus
+              placeholder="Search by name…"
+              value={pickerQuery}
+              onChange={(e) => setPickerQuery(e.target.value)}
+              className="mt-2 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
+            />
+            <select
+              value={pickerGroupId}
+              onChange={(e) => setPickerGroupId(e.target.value)}
+              className="mt-2 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
+            >
+              <option value="">All muscle groups</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+            <ul className="mt-2 flex max-h-60 flex-col gap-1 overflow-y-auto">
+              {filteredCatalog.map((ex) => (
+                <li key={ex.id}>
+                  <button
+                    onClick={() => addExerciseToSelected(ex)}
+                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-chalk-100 hover:bg-steel-800"
+                  >
+                    <span>{ex.name}</span>
+                    <span className="font-mono text-[10px] uppercase text-chalk-500">
+                      {ex.muscle_groups?.name}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+
+            <div className="mt-3 border-t border-steel-700 pt-3">
+              <p className="font-mono text-[10px] uppercase tracking-widest text-chalk-500">
+                Can't find it? Add a custom exercise
+              </p>
+              <div className="mt-2 flex flex-col gap-2">
+                <input
+                  placeholder="Exercise name"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
+                />
+                <MuscleGroupSelect
+                  groups={groups}
+                  value={newGroupId}
+                  onChange={setNewGroupId}
+                  onGroupCreated={(g) => setGroups((prev) => [...prev, g])}
+                  userId={userId}
+                  className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
+                />
+                <button
+                  onClick={addCustomExercise}
+                  className="rounded-lg bg-copper-500 py-2 text-sm font-semibold text-steel-950"
+                >
+                  Add and use
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {groupingMode && (
