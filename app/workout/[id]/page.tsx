@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { suggestNextWeight } from "@/lib/suggestions";
 import { buildMotivationalMessage } from "@/lib/motivation";
+import { saveWorkoutTemplate } from "@/lib/templates";
 import RestTimer from "@/components/RestTimer";
 import SetRow from "@/components/SetRow";
 import type {
@@ -461,41 +462,17 @@ export default function ActiveWorkoutPage() {
     setSavingTemplate(true);
     const supabase = createClient();
 
-    const { data: template } = await supabase
-      .from("workout_templates")
-      .insert({ user_id: userId, name: templateName.trim(), notes: templateNotes.trim() || null })
-      .select()
-      .single();
-    if (!template) {
-      setSavingTemplate(false);
-      return;
-    }
-
-    await supabase.from("workout_template_exercises").insert(
-      plannedExercises.map((ex, position) => ({
-        template_id: template.id,
-        exercise_id: ex.id,
-        position,
-      }))
+    const templateId = await saveWorkoutTemplate(
+      supabase,
+      userId,
+      templateName.trim(),
+      plannedExercises.map((ex) => ex.id),
+      supersetGroups.map((g) => g.exerciseIds),
+      templateNotes.trim() || null
     );
 
-    for (const group of supersetGroups) {
-      const { data: templateGroup } = await supabase
-        .from("workout_template_superset_groups")
-        .insert({ template_id: template.id })
-        .select()
-        .single();
-      if (!templateGroup) continue;
-      await supabase.from("workout_template_superset_group_exercises").insert(
-        group.exerciseIds.map((exerciseId, position) => ({
-          group_id: templateGroup.id,
-          exercise_id: exerciseId,
-          position,
-        }))
-      );
-    }
-
     setSavingTemplate(false);
+    if (!templateId) return;
     setShowSaveTemplate(false);
     setTemplateName("");
     setTemplateNotes("");
