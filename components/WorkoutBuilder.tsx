@@ -18,17 +18,31 @@ interface Props {
   saveLabel: string;
   savingLabel: string;
   onSave: (args: WorkoutBuilderSaveArgs) => void;
+  initialName?: string;
+  initialSelected?: Exercise[];
+  initialPendingGroups?: string[][];
 }
 
 // Shared "build a workout from nothing" UI: name it, add exercises one at a
 // time (catalog or brand new, cross-muscle-group), flag cardio/superset as
 // needed. What happens on save (start it live vs. just save it for later)
-// is entirely up to the caller via onSave.
-export default function WorkoutBuilder({ title, subtitle, saving, saveLabel, savingLabel, onSave }: Props) {
-  const [name, setName] = useState("");
-  const [selected, setSelected] = useState<Exercise[]>([]);
+// is entirely up to the caller via onSave. Also doubles as an editor when
+// initial* props are passed in — same UI, just pre-populated.
+export default function WorkoutBuilder({
+  title,
+  subtitle,
+  saving,
+  saveLabel,
+  savingLabel,
+  onSave,
+  initialName = "",
+  initialSelected = [],
+  initialPendingGroups = [],
+}: Props) {
+  const [name, setName] = useState(initialName);
+  const [selected, setSelected] = useState<Exercise[]>(initialSelected);
 
-  const [pendingGroups, setPendingGroups] = useState<string[][]>([]);
+  const [pendingGroups, setPendingGroups] = useState<string[][]>(initialPendingGroups);
   const [groupingMode, setGroupingMode] = useState(false);
   const [groupingSelection, setGroupingSelection] = useState<string[]>([]);
 
@@ -42,6 +56,10 @@ export default function WorkoutBuilder({ title, subtitle, saving, saveLabel, sav
   const [newGroupId, setNewGroupId] = useState("");
   const [newIsCardio, setNewIsCardio] = useState(false);
   const [newIsUnilateral, setNewIsUnilateral] = useState(false);
+
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [renaming, setRenaming] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -63,6 +81,28 @@ export default function WorkoutBuilder({ title, subtitle, saving, saveLabel, sav
       prev.map((g) => g.filter((id) => id !== exerciseId)).filter((g) => g.length >= 2)
     );
     setGroupingSelection((prev) => prev.filter((id) => id !== exerciseId));
+  }
+
+  function startRename(ex: Exercise) {
+    setRenamingId(ex.id);
+    setRenameValue(ex.name);
+  }
+
+  async function saveRename(exerciseId: string) {
+    if (!renameValue.trim()) return;
+    setRenaming(true);
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("exercises")
+      .update({ name: renameValue.trim() })
+      .eq("id", exerciseId);
+    if (!error) {
+      const trimmed = renameValue.trim();
+      setSelected((prev) => prev.map((e) => (e.id === exerciseId ? { ...e, name: trimmed } : e)));
+      setCatalog((prev) => prev.map((e) => (e.id === exerciseId ? { ...e, name: trimmed } : e)));
+      setRenamingId(null);
+    }
+    setRenaming(false);
   }
 
   function addExerciseToSelected(ex: Exercise) {
@@ -179,6 +219,33 @@ export default function WorkoutBuilder({ title, subtitle, saving, saveLabel, sav
           {selected.map((ex) => {
             const groupIndex = pendingGroups.findIndex((g) => g.includes(ex.id));
             const selectedForGroup = groupingSelection.includes(ex.id);
+
+            if (renamingId === ex.id) {
+              return (
+                <li key={ex.id} className="flex items-center gap-2">
+                  <input
+                    autoFocus
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    className="flex-1 rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100"
+                  />
+                  <button
+                    onClick={() => saveRename(ex.id)}
+                    disabled={renaming || !renameValue.trim()}
+                    className="shrink-0 rounded-xl bg-copper-500 px-3 py-3 text-xs font-semibold text-steel-950 disabled:opacity-50"
+                  >
+                    {renaming ? "…" : "Save"}
+                  </button>
+                  <button
+                    onClick={() => setRenamingId(null)}
+                    className="shrink-0 rounded-xl border border-steel-600 px-3 py-3 text-xs text-chalk-300"
+                  >
+                    Cancel
+                  </button>
+                </li>
+              );
+            }
+
             return (
               <li key={ex.id} className="flex items-center gap-2">
                 <button
@@ -207,6 +274,14 @@ export default function WorkoutBuilder({ title, subtitle, saving, saveLabel, sav
                     </span>
                   )}
                 </button>
+                {!groupingMode && ex.owner_id === userId && (
+                  <button
+                    onClick={() => startRename(ex)}
+                    className="shrink-0 rounded-xl border border-steel-600 px-3 py-3 text-chalk-300"
+                  >
+                    ✎
+                  </button>
+                )}
                 {!groupingMode && (
                   <button
                     onClick={() => removeExercise(ex.id)}
