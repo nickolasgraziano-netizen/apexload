@@ -13,6 +13,7 @@ export default function ExerciseCatalogPage() {
   const [newGroupId, setNewGroupId] = useState("");
   const [newIsUnilateral, setNewIsUnilateral] = useState(false);
   const [newIsCardio, setNewIsCardio] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
   const [userId, setUserId] = useState<string | null>(null);
@@ -65,14 +66,19 @@ export default function ExerciseCatalogPage() {
   }, []);
 
   async function addCustomExercise() {
-    if (!newName.trim() || !newGroupId) return;
+    setAddError(null);
+    if (!newName.trim()) return;
+    if (!newGroupId) {
+      setAddError("Pick a muscle group first.");
+      return;
+    }
     const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return;
 
-    await supabase.from("exercises").insert({
+    const { error } = await supabase.from("exercises").insert({
       owner_id: user.id,
       muscle_group_id: newGroupId,
       name: newName.trim(),
@@ -80,6 +86,10 @@ export default function ExerciseCatalogPage() {
       is_unilateral: newIsUnilateral,
       is_cardio: newIsCardio,
     });
+    if (error) {
+      setAddError("Couldn't add that exercise. Try again.");
+      return;
+    }
     setNewName("");
     setNewIsUnilateral(false);
     setNewIsCardio(false);
@@ -188,7 +198,10 @@ export default function ExerciseCatalogPage() {
           <MuscleGroupSelect
             groups={groups}
             value={newGroupId}
-            onChange={setNewGroupId}
+            onChange={(id) => {
+              setNewGroupId(id);
+              setAddError(null);
+            }}
             onGroupCreated={(g) => setGroups((prev) => [...prev, g])}
             userId={userId}
             className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
@@ -209,6 +222,7 @@ export default function ExerciseCatalogPage() {
             />
             Cardio (logged by duration, not sets)
           </label>
+          {addError && <p className="text-xs text-copper-400">{addError}</p>}
           <button
             onClick={addCustomExercise}
             className="rounded-lg bg-copper-500 py-2 text-sm font-semibold text-steel-950"
