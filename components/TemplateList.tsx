@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { WorkoutTemplate } from "@/lib/types";
@@ -80,13 +81,21 @@ export default function TemplateList({
             <span className="text-chalk-100">{t.name}</span>
             {t.notes && <p className="mt-0.5 text-xs text-chalk-500">{t.notes}</p>}
           </div>
-          <button
-            onClick={() => startTemplate(t)}
-            disabled={startingId === t.id}
-            className="rounded-lg bg-copper-500 px-3 py-1.5 text-xs font-semibold text-steel-950 disabled:opacity-50"
-          >
-            {startingId === t.id ? "Starting…" : "Start"}
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <Link
+              href={`/workout/plan/edit/${t.id}`}
+              className="rounded-lg border border-steel-600 px-3 py-1.5 text-xs text-chalk-300"
+            >
+              Edit
+            </Link>
+            <button
+              onClick={() => startTemplate(t)}
+              disabled={startingId === t.id}
+              className="rounded-lg bg-copper-500 px-3 py-1.5 text-xs font-semibold text-steel-950 disabled:opacity-50"
+            >
+              {startingId === t.id ? "Starting…" : "Start"}
+            </button>
+          </div>
         </div>
       ))}
     </section>
