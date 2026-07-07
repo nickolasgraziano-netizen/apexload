@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { startWorkoutTemplate } from "@/lib/templates";
 import type { WorkoutTemplate } from "@/lib/types";
 
 export default function TemplateList({
@@ -19,52 +20,12 @@ export default function TemplateList({
   async function startTemplate(template: WorkoutTemplate) {
     setStartingId(template.id);
     const supabase = createClient();
-
-    const { data: templateExercises } = await supabase
-      .from("workout_template_exercises")
-      .select("exercise_id, position")
-      .eq("template_id", template.id)
-      .order("position");
-    const exerciseIds = (templateExercises ?? []).map((e) => e.exercise_id);
-
-    const { data: templateGroups } = await supabase
-      .from("workout_template_superset_groups")
-      .select("id, workout_template_superset_group_exercises ( exercise_id, position )")
-      .eq("template_id", template.id);
-
-    const { data: session } = await supabase
-      .from("sessions")
-      .insert({ user_id: userId, muscle_group_id: null, template_id: template.id })
-      .select()
-      .single();
-
-    if (!session) {
+    const sessionId = await startWorkoutTemplate(supabase, userId, template.id);
+    if (!sessionId) {
       setStartingId(null);
       return;
     }
-
-    sessionStorage.setItem(`apexload:plan:${session.id}`, JSON.stringify(exerciseIds));
-
-    for (const group of templateGroups ?? []) {
-      const exercises = ((group as any).workout_template_superset_group_exercises ?? []).sort(
-        (a: any, b: any) => a.position - b.position
-      );
-      const { data: newGroup } = await supabase
-        .from("superset_groups")
-        .insert({ session_id: session.id, user_id: userId })
-        .select()
-        .single();
-      if (!newGroup) continue;
-      await supabase.from("superset_group_exercises").insert(
-        exercises.map((e: any, position: number) => ({
-          group_id: newGroup.id,
-          exercise_id: e.exercise_id,
-          position,
-        }))
-      );
-    }
-
-    router.push(`/workout/${session.id}`);
+    router.push(`/workout/${sessionId}`);
   }
 
   if (templates.length === 0) return null;
@@ -77,10 +38,10 @@ export default function TemplateList({
           key={t.id}
           className="flex items-center justify-between rounded-xl border border-steel-700 bg-steel-900 px-4 py-3"
         >
-          <div>
+          <Link href={`/workout/plan/${t.id}`} className="min-w-0">
             <span className="text-chalk-100">{t.name}</span>
             {t.notes && <p className="mt-0.5 text-xs text-chalk-500">{t.notes}</p>}
-          </div>
+          </Link>
           <div className="flex shrink-0 items-center gap-2">
             <Link
               href={`/workout/plan/edit/${t.id}`}
