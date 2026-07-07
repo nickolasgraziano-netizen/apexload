@@ -21,6 +21,19 @@
       radial-gradient(500px circle at 0% 100%, rgb(227 66 52 / 0.06), transparent 60%);
     background-attachment: fixed;
   }
+
+  /* Every button/link gets a visible press effect app-wide, instead of
+     relying on each screen to remember its own active: classes. */
+  button:not(:disabled),
+  a {
+    transition: transform 0.1s ease, opacity 0.1s ease;
+  }
+  button:not(:disabled):active {
+    transform: scale(0.96);
+  }
+  a:active {
+    opacity: 0.7;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
