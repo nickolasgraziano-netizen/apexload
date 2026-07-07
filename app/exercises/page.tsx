@@ -11,6 +11,8 @@ export default function ExerciseCatalogPage() {
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [showHidden, setShowHidden] = useState(false);
   const [query, setQuery] = useState("");
+  const [sortMode, setSortMode] = useState<"alpha" | "group">("alpha");
+  const [customOnly, setCustomOnly] = useState(false);
   const [newName, setNewName] = useState("");
   const [newGroupId, setNewGroupId] = useState("");
   const [newIsUnilateral, setNewIsUnilateral] = useState(false);
@@ -228,9 +230,22 @@ export default function ExerciseCatalogPage() {
     setDeletingPhotoFor(null);
   }
 
+  const groupNameById = new Map(groups.map((g) => [g.id, g.name]));
+
   const filtered = exercises
     .filter((e) => e.name.toLowerCase().includes(query.toLowerCase()))
-    .filter((e) => (showHidden ? hiddenIds.has(e.id) : !hiddenIds.has(e.id)));
+    .filter((e) => (showHidden ? hiddenIds.has(e.id) : !hiddenIds.has(e.id)))
+    .filter((e) => (customOnly ? e.is_custom : true));
+
+  const sorted =
+    sortMode === "group"
+      ? [...filtered].sort((a, b) => {
+          const groupCompare = (groupNameById.get(a.muscle_group_id) ?? "").localeCompare(
+            groupNameById.get(b.muscle_group_id) ?? ""
+          );
+          return groupCompare !== 0 ? groupCompare : a.name.localeCompare(b.name);
+        })
+      : filtered;
 
   return (
     <main className="min-h-screen px-5 pb-24 pt-8">
@@ -255,6 +270,39 @@ export default function ExerciseCatalogPage() {
         onChange={(e) => setQuery(e.target.value)}
         className="mt-5 w-full rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
       />
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          onClick={() => setSortMode("alpha")}
+          className={`rounded-lg px-3 py-1.5 font-mono text-xs uppercase tracking-widest ${
+            sortMode === "alpha"
+              ? "bg-copper-500 text-steel-950"
+              : "border border-steel-600/60 bg-steel-900/40 text-chalk-300 backdrop-blur-md"
+          }`}
+        >
+          A–Z
+        </button>
+        <button
+          onClick={() => setSortMode("group")}
+          className={`rounded-lg px-3 py-1.5 font-mono text-xs uppercase tracking-widest ${
+            sortMode === "group"
+              ? "bg-copper-500 text-steel-950"
+              : "border border-steel-600/60 bg-steel-900/40 text-chalk-300 backdrop-blur-md"
+          }`}
+        >
+          By muscle group
+        </button>
+        <button
+          onClick={() => setCustomOnly((v) => !v)}
+          className={`rounded-lg px-3 py-1.5 font-mono text-xs uppercase tracking-widest ${
+            customOnly
+              ? "bg-copper-500 text-steel-950"
+              : "border border-steel-600/60 bg-steel-900/40 text-chalk-300 backdrop-blur-md"
+          }`}
+        >
+          My custom only
+        </button>
+      </div>
 
       {!showHidden && (
         <section className="mt-6 rounded-2xl border border-steel-700 bg-steel-900 p-4">
@@ -306,16 +354,27 @@ export default function ExerciseCatalogPage() {
         </section>
       )}
 
-      {showHidden && filtered.length === 0 && (
+      {showHidden && sorted.length === 0 && (
         <p className="mt-6 text-sm text-chalk-500">Nothing hidden.</p>
+      )}
+      {!showHidden && customOnly && sorted.length === 0 && (
+        <p className="mt-6 text-sm text-chalk-500">No custom exercises yet.</p>
       )}
 
       <ul className="mt-6 flex flex-col gap-2">
-        {filtered.map((ex) => (
-          <li
-            key={ex.id}
-            className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3"
-          >
+        {sorted.map((ex, i) => {
+          const groupName = groupNameById.get(ex.muscle_group_id) ?? "Other";
+          const prevGroupName =
+            i > 0 ? groupNameById.get(sorted[i - 1].muscle_group_id) ?? "Other" : null;
+          const showGroupHeader = sortMode === "group" && groupName !== prevGroupName;
+          return (
+          <li key={ex.id} className="contents">
+            {showGroupHeader && (
+              <p className="mt-4 px-1 font-mono text-xs uppercase tracking-widest text-copper-500 first:mt-0">
+                {groupName}
+              </p>
+            )}
+            <div className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3">
             {editingId === ex.id ? (
               <div className="flex flex-col gap-2">
                 <input
@@ -451,8 +510,10 @@ export default function ExerciseCatalogPage() {
                 </div>
               </div>
             )}
+            </div>
           </li>
-        ))}
+          );
+        })}
       </ul>
 
       {enlargedExerciseId && photoUrls[enlargedExerciseId] && (
