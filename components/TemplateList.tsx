@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { startWorkoutTemplate } from "@/lib/templates";
+import { deleteWorkoutTemplate, startWorkoutTemplate } from "@/lib/templates";
 import type { WorkoutTemplate } from "@/lib/types";
 
 export default function TemplateList({
@@ -15,7 +15,13 @@ export default function TemplateList({
   userId: string;
 }) {
   const router = useRouter();
+  const [items, setItems] = useState(templates);
   const [startingId, setStartingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setItems(templates);
+  }, [templates]);
 
   async function startTemplate(template: WorkoutTemplate) {
     setStartingId(template.id);
@@ -28,12 +34,23 @@ export default function TemplateList({
     router.push(`/workout/${sessionId}`);
   }
 
-  if (templates.length === 0) return null;
+  async function deleteTemplate(template: WorkoutTemplate) {
+    if (!confirm(`Delete "${template.name}"? This can't be undone.`)) return;
+    setDeletingId(template.id);
+    const supabase = createClient();
+    const ok = await deleteWorkoutTemplate(supabase, template.id);
+    if (ok) {
+      setItems((prev) => prev.filter((t) => t.id !== template.id));
+    }
+    setDeletingId(null);
+  }
+
+  if (items.length === 0) return null;
 
   return (
     <section className="mt-6 flex flex-col gap-2">
       <h3 className="font-mono text-xs uppercase tracking-widest text-chalk-500">Templates</h3>
-      {templates.map((t) => (
+      {items.map((t) => (
         <div
           key={t.id}
           onClick={() => router.push(`/workout/plan/${t.id}`)}
@@ -60,6 +77,17 @@ export default function TemplateList({
               className="rounded-lg bg-copper-500 px-3 py-1.5 text-xs font-semibold text-steel-950 disabled:opacity-50"
             >
               {startingId === t.id ? "Starting…" : "Start"}
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                deleteTemplate(t);
+              }}
+              disabled={deletingId === t.id}
+              aria-label="Delete plan"
+              className="rounded-lg border border-copper-600 px-2 py-1.5 text-xs text-copper-400 disabled:opacity-50"
+            >
+              {deletingId === t.id ? "…" : "✕"}
             </button>
           </div>
         </div>

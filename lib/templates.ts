@@ -140,3 +140,17 @@ export async function updateWorkoutTemplate(
 
   return true;
 }
+
+/**
+ * Deletes a saved plan outright — safe because its exercise/superset rows
+ * cascade with it, and any session that was launched from it just loses
+ * the reference (sessions.template_id is ON DELETE SET NULL) rather than
+ * losing its own logged history.
+ */
+export async function deleteWorkoutTemplate(
+  supabase: SupabaseClient,
+  templateId: string
+): Promise<boolean> {
+  const { error } = await supabase.from("workout_templates").delete().eq("id", templateId);
+  return !error;
+}

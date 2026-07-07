@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { startWorkoutTemplate } from "@/lib/templates";
+import { deleteWorkoutTemplate, startWorkoutTemplate } from "@/lib/templates";
 import type { Exercise, WorkoutTemplate } from "@/lib/types";
 
 interface Item {
@@ -27,6 +27,7 @@ export default function PlanDetailPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [reordering, setReordering] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -110,6 +111,19 @@ export default function PlanDetailPage() {
       return;
     }
     router.push(`/workout/${sessionId}`);
+  }
+
+  async function handleDelete() {
+    if (!template) return;
+    if (!confirm(`Delete "${template.name}"? This can't be undone.`)) return;
+    setDeleting(true);
+    const supabase = createClient();
+    const ok = await deleteWorkoutTemplate(supabase, id);
+    if (!ok) {
+      setDeleting(false);
+      return;
+    }
+    router.push("/");
   }
 
   if (loading) return null;
@@ -197,6 +211,14 @@ export default function PlanDetailPage() {
         className="mt-8 w-full rounded-xl bg-copper-500 px-4 py-4 text-center font-body font-semibold text-steel-950 active:bg-copper-600 disabled:opacity-50"
       >
         {starting ? "Starting…" : "Start this workout"}
+      </button>
+
+      <button
+        onClick={handleDelete}
+        disabled={deleting}
+        className="mt-3 w-full rounded-xl border border-copper-600 px-4 py-3 text-center text-sm text-copper-400 disabled:opacity-50"
+      >
+        {deleting ? "Deleting…" : "Delete this plan"}
       </button>
     </main>
   );
