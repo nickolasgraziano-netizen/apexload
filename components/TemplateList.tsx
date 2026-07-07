@@ -36,21 +36,26 @@ export default function TemplateList({
       {templates.map((t) => (
         <div
           key={t.id}
-          className="flex items-center justify-between rounded-xl border border-steel-700 bg-steel-900 px-4 py-3"
+          onClick={() => router.push(`/workout/plan/${t.id}`)}
+          className="flex cursor-pointer items-center justify-between rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 active:bg-steel-800"
         >
-          <Link href={`/workout/plan/${t.id}`} className="min-w-0">
+          <div className="min-w-0">
             <span className="text-chalk-100">{t.name}</span>
             {t.notes && <p className="mt-0.5 text-xs text-chalk-500">{t.notes}</p>}
-          </Link>
+          </div>
           <div className="flex shrink-0 items-center gap-2">
             <Link
               href={`/workout/plan/edit/${t.id}`}
+              onClick={(e) => e.stopPropagation()}
               className="rounded-lg border border-steel-600 px-3 py-1.5 text-xs text-chalk-300"
             >
               Edit
             </Link>
             <button
-              onClick={() => startTemplate(t)}
+              onClick={(e) => {
+                e.stopPropagation();
+                startTemplate(t);
+              }}
               disabled={startingId === t.id}
               className="rounded-lg bg-copper-500 px-3 py-1.5 text-xs font-semibold text-steel-950 disabled:opacity-50"
             >
