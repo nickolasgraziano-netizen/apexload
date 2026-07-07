@@ -463,7 +463,7 @@ export default function LogPastWorkoutPage() {
             placeholder="Search by name…"
             value={pickerQuery}
             onChange={(e) => setPickerQuery(e.target.value)}
-            className="mt-2 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
+            className="mt-2 w-full rounded-lg border border-steel-500 bg-steel-800 px-3 py-2 text-sm text-chalk-100 outline-none placeholder:text-chalk-500 focus:border-copper-500"
           />
           <select
             value={pickerGroupId}
