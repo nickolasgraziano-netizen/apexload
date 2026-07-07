@@ -58,6 +58,62 @@ export async function saveWorkoutTemplate(
 }
 
 /**
+ * Launches a saved template as a live session: creates the session row,
+ * stashes the planned exercise order for the workout screen to pick up,
+ * and recreates the template's superset groups as live ones. Shared by
+ * the Templates list on Home and the template detail page so "Start"
+ * behaves identically from either place.
+ */
+export async function startWorkoutTemplate(
+  supabase: SupabaseClient,
+  userId: string,
+  templateId: string
+): Promise<string | null> {
+  const { data: templateExercises } = await supabase
+    .from("workout_template_exercises")
+    .select("exercise_id, position")
+    .eq("template_id", templateId)
+    .order("position");
+  const exerciseIds = (templateExercises ?? []).map((e) => e.exercise_id as string);
+
+  const { data: templateGroups } = await supabase
+    .from("workout_template_superset_groups")
+    .select("id, workout_template_superset_group_exercises ( exercise_id, position )")
+    .eq("template_id", templateId);
+
+  const { data: session } = await supabase
+    .from("sessions")
+    .insert({ user_id: userId, muscle_group_id: null, template_id: templateId })
+    .select()
+    .single();
+  if (!session) return null;
+
+  sessionStorage.setItem(`apexload:plan:${session.id}`, JSON.stringify(exerciseIds));
+
+  for (const group of templateGroups ?? []) {
+    const exercises = (
+      (group as { workout_template_superset_group_exercises: { exercise_id: string; position: number }[] })
+        .workout_template_superset_group_exercises ?? []
+    ).sort((a, b) => a.position - b.position);
+    const { data: newGroup } = await supabase
+      .from("superset_groups")
+      .insert({ session_id: session.id, user_id: userId })
+      .select()
+      .single();
+    if (!newGroup) continue;
+    await supabase.from("superset_group_exercises").insert(
+      exercises.map((e, position) => ({
+        group_id: newGroup.id,
+        exercise_id: e.exercise_id,
+        position,
+      }))
+    );
+  }
+
+  return session.id as string;
+}
+
+/**
  * Replaces an existing template's name/notes and its full exercise list —
  * dropping and re-inserting the exercise/superset rows is safe because
  * nothing else references them by id (sessions link to exercises directly
