@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Barlow_Condensed, Manrope, IBM_Plex_Mono } from "next/font/google";
+import HomeBar from "@/components/HomeBar";
 import "./globals.css";
 
 const display = Barlow_Condensed({
@@ -35,7 +36,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`}>
-      <body className="bg-steel-950 text-chalk-100 font-body antialiased">{children}</body>
+      <body className="bg-steel-950 text-chalk-100 font-body antialiased">
+        <HomeBar />
+        {children}
+      </body>
     </html>
   );
 }

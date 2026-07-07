@@ -268,7 +268,7 @@ export default function ExerciseCatalogPage() {
         placeholder="Search exercises…"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        className="mt-5 w-full rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
+        className="mt-5 w-full rounded-xl border border-steel-500 bg-steel-900 px-4 py-3 text-chalk-100 outline-none placeholder:text-chalk-500 focus:border-copper-500"
       />
 
       <div className="mt-3 flex flex-wrap gap-2">
