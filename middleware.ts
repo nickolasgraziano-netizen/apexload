@@ -2,6 +2,18 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
+  // Next.js prefetches every visible <Link> in the background. Those
+  // requests run in parallel with real navigations and can race to refresh
+  // the same rotating Supabase refresh token — the loser gets "already
+  // used" and Supabase revokes the whole session, logging the user out of
+  // a session that was otherwise still good. Skip auth handling for them.
+  if (
+    request.headers.get("next-router-prefetch") === "1" ||
+    request.headers.get("purpose") === "prefetch"
+  ) {
+    return NextResponse.next({ request });
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
