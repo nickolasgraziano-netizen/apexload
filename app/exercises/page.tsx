@@ -9,6 +9,7 @@ export default function ExerciseCatalogPage() {
   const [groups, setGroups] = useState<MuscleGroup[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [query, setQuery] = useState("");
+  const [sortMode, setSortMode] = useState<"alpha" | "group">("alpha");
   const [newName, setNewName] = useState("");
   const [newGroupId, setNewGroupId] = useState("");
   const [newIsUnilateral, setNewIsUnilateral] = useState(false);
@@ -170,7 +171,19 @@ export default function ExerciseCatalogPage() {
     setDeletingPhotoFor(null);
   }
 
+  const groupNameById = new Map(groups.map((g) => [g.id, g.name]));
+
   const filtered = exercises.filter((e) => e.name.toLowerCase().includes(query.toLowerCase()));
+
+  const sorted =
+    sortMode === "group"
+      ? [...filtered].sort((a, b) => {
+          const groupCompare = (groupNameById.get(a.muscle_group_id) ?? "").localeCompare(
+            groupNameById.get(b.muscle_group_id) ?? ""
+          );
+          return groupCompare !== 0 ? groupCompare : a.name.localeCompare(b.name);
+        })
+      : filtered;
 
   return (
     <main className="min-h-screen px-5 pb-24 pt-8">
@@ -183,6 +196,29 @@ export default function ExerciseCatalogPage() {
         onChange={(e) => setQuery(e.target.value)}
         className="mt-5 w-full rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
       />
+
+      <div className="mt-3 flex gap-2">
+        <button
+          onClick={() => setSortMode("alpha")}
+          className={`rounded-lg px-3 py-1.5 font-mono text-xs uppercase tracking-widest ${
+            sortMode === "alpha"
+              ? "bg-copper-500 text-steel-950"
+              : "border border-steel-600/60 bg-steel-900/40 text-chalk-300 backdrop-blur-md"
+          }`}
+        >
+          A–Z
+        </button>
+        <button
+          onClick={() => setSortMode("group")}
+          className={`rounded-lg px-3 py-1.5 font-mono text-xs uppercase tracking-widest ${
+            sortMode === "group"
+              ? "bg-copper-500 text-steel-950"
+              : "border border-steel-600/60 bg-steel-900/40 text-chalk-300 backdrop-blur-md"
+          }`}
+        >
+          By muscle group
+        </button>
+      </div>
 
       <section className="mt-6 rounded-2xl border border-steel-700 bg-steel-900 p-4">
         <h2 className="font-mono text-xs uppercase tracking-widest text-chalk-500">
@@ -233,81 +269,95 @@ export default function ExerciseCatalogPage() {
       </section>
 
       <ul className="mt-6 flex flex-col gap-2">
-        {filtered.map((ex) => (
-          <li
-            key={ex.id}
-            className="flex items-center justify-between rounded-xl border border-steel-700 bg-steel-900 px-4 py-3"
-          >
-            <div className="flex items-center gap-3">
-              {photoUrls[ex.id] ? (
-                <button
-                  onClick={() => setEnlargedExerciseId(ex.id)}
-                  className="h-10 w-10 shrink-0 overflow-hidden rounded-lg"
-                >
-                  <img src={photoUrls[ex.id]} alt="" className="h-10 w-10 object-cover" />
-                </button>
-              ) : (
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-dashed border-steel-600 bg-steel-800 text-chalk-600">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    className="h-5 w-5"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                  >
-                    <rect x="3" y="5" width="18" height="14" rx="2" />
-                    <circle cx="8.5" cy="10" r="1.5" fill="currentColor" stroke="none" />
-                    <path d="M3 16l5-5 4 4 3-3 6 6" />
-                  </svg>
-                </div>
+        {sorted.map((ex, i) => {
+          const groupName = groupNameById.get(ex.muscle_group_id) ?? "Other";
+          const prevGroupName =
+            i > 0 ? groupNameById.get(sorted[i - 1].muscle_group_id) ?? "Other" : null;
+          const showGroupHeader = sortMode === "group" && groupName !== prevGroupName;
+          return (
+            <li key={ex.id} className="contents">
+              {showGroupHeader && (
+                <p className="mt-4 px-1 font-mono text-xs uppercase tracking-widest text-copper-500 first:mt-0">
+                  {groupName}
+                </p>
               )}
-              <div>
-                <p className="text-chalk-100">{ex.name}</p>
-                <div className="flex flex-wrap gap-2">
-                  {ex.is_custom && (
-                    <span className="font-mono text-[10px] uppercase text-tungsten-400">Custom</span>
-                  )}
-                  {ex.is_unilateral && (
-                    <span className="font-mono text-[10px] uppercase text-copper-400">
-                      Per side
-                    </span>
-                  )}
-                  {ex.is_cardio && (
-                    <span className="font-mono text-[10px] uppercase text-tungsten-400">Cardio</span>
-                  )}
-                  {ex.owner_id === userId && (
+              <div className="flex items-center justify-between rounded-xl border border-steel-700 bg-steel-900 px-4 py-3">
+                <div className="flex items-center gap-3">
+                  {photoUrls[ex.id] ? (
                     <button
-                      onClick={() => toggleUnilateral(ex)}
-                      className="font-mono text-[10px] uppercase text-chalk-500 underline"
+                      onClick={() => setEnlargedExerciseId(ex.id)}
+                      className="h-10 w-10 shrink-0 overflow-hidden rounded-lg"
                     >
-                      {ex.is_unilateral ? "Make bilateral" : "Make unilateral"}
+                      <img src={photoUrls[ex.id]} alt="" className="h-10 w-10 object-cover" />
                     </button>
+                  ) : (
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-dashed border-steel-600 bg-steel-800 text-chalk-600">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        className="h-5 w-5"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                      >
+                        <rect x="3" y="5" width="18" height="14" rx="2" />
+                        <circle cx="8.5" cy="10" r="1.5" fill="currentColor" stroke="none" />
+                        <path d="M3 16l5-5 4 4 3-3 6 6" />
+                      </svg>
+                    </div>
                   )}
-                  {ex.owner_id === userId && (
-                    <button
-                      onClick={() => toggleCardio(ex)}
-                      className="font-mono text-[10px] uppercase text-chalk-500 underline"
-                    >
-                      {ex.is_cardio ? "Unmark cardio" : "Mark as cardio"}
-                    </button>
-                  )}
+                  <div>
+                    <p className="text-chalk-100">{ex.name}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {ex.is_custom && (
+                        <span className="font-mono text-[10px] uppercase text-tungsten-400">
+                          Custom
+                        </span>
+                      )}
+                      {ex.is_unilateral && (
+                        <span className="font-mono text-[10px] uppercase text-copper-400">
+                          Per side
+                        </span>
+                      )}
+                      {ex.is_cardio && (
+                        <span className="font-mono text-[10px] uppercase text-tungsten-400">
+                          Cardio
+                        </span>
+                      )}
+                      {ex.owner_id === userId && (
+                        <button
+                          onClick={() => toggleUnilateral(ex)}
+                          className="font-mono text-[10px] uppercase text-chalk-500 underline"
+                        >
+                          {ex.is_unilateral ? "Make bilateral" : "Make unilateral"}
+                        </button>
+                      )}
+                      {ex.owner_id === userId && (
+                        <button
+                          onClick={() => toggleCardio(ex)}
+                          className="font-mono text-[10px] uppercase text-chalk-500 underline"
+                        >
+                          {ex.is_cardio ? "Unmark cardio" : "Mark as cardio"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
+                <label className="shrink-0 cursor-pointer rounded-lg border border-steel-600 px-3 py-1.5 text-xs text-chalk-300">
+                  {uploadingFor === ex.id ? "Uploading…" : "📷 Photo"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) uploadMachinePhoto(ex.id, file);
+                    }}
+                  />
+                </label>
               </div>
-            </div>
-            <label className="shrink-0 cursor-pointer rounded-lg border border-steel-600 px-3 py-1.5 text-xs text-chalk-300">
-              {uploadingFor === ex.id ? "Uploading…" : "📷 Photo"}
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) uploadMachinePhoto(ex.id, file);
-                }}
-              />
-            </label>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
 
       {enlargedExerciseId && photoUrls[enlargedExerciseId] && (
