@@ -8,6 +8,8 @@ import type { Exercise, MuscleGroup } from "@/lib/types";
 export default function ExerciseCatalogPage() {
   const [groups, setGroups] = useState<MuscleGroup[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
+  const [showHidden, setShowHidden] = useState(false);
   const [query, setQuery] = useState("");
   const [newName, setNewName] = useState("");
   const [newGroupId, setNewGroupId] = useState("");
@@ -18,6 +20,11 @@ export default function ExerciseCatalogPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [enlargedExerciseId, setEnlargedExerciseId] = useState<string | null>(null);
   const [deletingPhotoFor, setDeletingPhotoFor] = useState<string | null>(null);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editGroupId, setEditGroupId] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   async function refresh() {
     const supabase = createClient();
@@ -31,6 +38,12 @@ export default function ExerciseCatalogPage() {
     } = await supabase.auth.getUser();
     if (!user) return;
     setUserId(user.id);
+
+    const { data: hidden } = await supabase
+      .from("hidden_exercises")
+      .select("exercise_id")
+      .eq("user_id", user.id);
+    setHiddenIds(new Set((hidden ?? []).map((h) => h.exercise_id)));
 
     const { data: photos } = await supabase
       .from("machine_photos")
@@ -100,6 +113,51 @@ export default function ExerciseCatalogPage() {
     setExercises((prev) => prev.map((e) => (e.id === ex.id ? { ...e, is_cardio: !e.is_cardio } : e)));
   }
 
+  function startEditing(ex: Exercise) {
+    setEditingId(ex.id);
+    setEditName(ex.name);
+    setEditGroupId(ex.muscle_group_id);
+  }
+
+  async function saveEdit(exerciseId: string) {
+    if (!editName.trim() || !editGroupId) return;
+    setSavingEdit(true);
+    const supabase = createClient();
+    await supabase
+      .from("exercises")
+      .update({ name: editName.trim(), muscle_group_id: editGroupId })
+      .eq("id", exerciseId);
+    setExercises((prev) =>
+      prev.map((e) =>
+        e.id === exerciseId ? { ...e, name: editName.trim(), muscle_group_id: editGroupId } : e
+      )
+    );
+    setSavingEdit(false);
+    setEditingId(null);
+  }
+
+  async function hideExercise(exerciseId: string) {
+    if (!userId) return;
+    const supabase = createClient();
+    await supabase.from("hidden_exercises").insert({ user_id: userId, exercise_id: exerciseId });
+    setHiddenIds((prev) => new Set(prev).add(exerciseId));
+  }
+
+  async function unhideExercise(exerciseId: string) {
+    if (!userId) return;
+    const supabase = createClient();
+    await supabase
+      .from("hidden_exercises")
+      .delete()
+      .eq("user_id", userId)
+      .eq("exercise_id", exerciseId);
+    setHiddenIds((prev) => {
+      const next = new Set(prev);
+      next.delete(exerciseId);
+      return next;
+    });
+  }
+
   async function uploadMachinePhoto(exerciseId: string, file: File) {
     const supabase = createClient();
     const {
@@ -160,12 +218,26 @@ export default function ExerciseCatalogPage() {
     setDeletingPhotoFor(null);
   }
 
-  const filtered = exercises.filter((e) => e.name.toLowerCase().includes(query.toLowerCase()));
+  const filtered = exercises
+    .filter((e) => e.name.toLowerCase().includes(query.toLowerCase()))
+    .filter((e) => (showHidden ? hiddenIds.has(e.id) : !hiddenIds.has(e.id)));
 
   return (
     <main className="min-h-screen px-5 pb-24 pt-8">
-      <p className="font-mono text-xs uppercase tracking-widest text-copper-500">Catalog</p>
-      <h1 className="mt-1 font-display text-3xl font-extrabold text-chalk-100">Exercises</h1>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="font-mono text-xs uppercase tracking-widest text-copper-500">Catalog</p>
+          <h1 className="mt-1 font-display text-3xl font-extrabold text-chalk-100">Exercises</h1>
+        </div>
+        {(hiddenIds.size > 0 || showHidden) && (
+          <button
+            onClick={() => setShowHidden((v) => !v)}
+            className="rounded-lg border border-steel-600/60 bg-steel-900/40 px-3 py-1.5 font-mono text-xs text-chalk-300 backdrop-blur-md"
+          >
+            {showHidden ? "Show catalog" : `Show hidden (${hiddenIds.size})`}
+          </button>
+        )}
+      </div>
 
       <input
         placeholder="Search exercises…"
@@ -174,124 +246,197 @@ export default function ExerciseCatalogPage() {
         className="mt-5 w-full rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
       />
 
-      <section className="mt-6 rounded-2xl border border-steel-700 bg-steel-900 p-4">
-        <h2 className="font-mono text-xs uppercase tracking-widest text-chalk-500">
-          Add custom exercise
-        </h2>
-        <div className="mt-2 flex flex-col gap-2">
-          <input
-            placeholder="Exercise name"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
-          />
-          <MuscleGroupSelect
-            groups={groups}
-            value={newGroupId}
-            onChange={setNewGroupId}
-            onGroupCreated={(g) => setGroups((prev) => [...prev, g])}
-            userId={userId}
-            className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
-          />
-          <label className="flex items-center gap-2 text-sm text-chalk-300">
+      {!showHidden && (
+        <section className="mt-6 rounded-2xl border border-steel-700 bg-steel-900 p-4">
+          <h2 className="font-mono text-xs uppercase tracking-widest text-chalk-500">
+            Add custom exercise
+          </h2>
+          <div className="mt-2 flex flex-col gap-2">
             <input
-              type="checkbox"
-              checked={newIsUnilateral}
-              onChange={(e) => setNewIsUnilateral(e.target.checked)}
+              placeholder="Exercise name"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
             />
-            Unilateral (train each side separately)
-          </label>
-          <label className="flex items-center gap-2 text-sm text-chalk-300">
-            <input
-              type="checkbox"
-              checked={newIsCardio}
-              onChange={(e) => setNewIsCardio(e.target.checked)}
+            <MuscleGroupSelect
+              groups={groups}
+              value={newGroupId}
+              onChange={setNewGroupId}
+              onGroupCreated={(g) => setGroups((prev) => [...prev, g])}
+              userId={userId}
+              className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
             />
-            Cardio (logged by duration, not sets)
-          </label>
-          <button
-            onClick={addCustomExercise}
-            className="rounded-lg bg-copper-500 py-2 text-sm font-semibold text-steel-950"
-          >
-            Add
-          </button>
-        </div>
-      </section>
+            <label className="flex items-center gap-2 text-sm text-chalk-300">
+              <input
+                type="checkbox"
+                checked={newIsUnilateral}
+                onChange={(e) => setNewIsUnilateral(e.target.checked)}
+              />
+              Unilateral (train each side separately)
+            </label>
+            <label className="flex items-center gap-2 text-sm text-chalk-300">
+              <input
+                type="checkbox"
+                checked={newIsCardio}
+                onChange={(e) => setNewIsCardio(e.target.checked)}
+              />
+              Cardio (logged by duration, not sets)
+            </label>
+            <button
+              onClick={addCustomExercise}
+              className="rounded-lg bg-copper-500 py-2 text-sm font-semibold text-steel-950"
+            >
+              Add
+            </button>
+          </div>
+        </section>
+      )}
+
+      {showHidden && filtered.length === 0 && (
+        <p className="mt-6 text-sm text-chalk-500">Nothing hidden.</p>
+      )}
 
       <ul className="mt-6 flex flex-col gap-2">
         {filtered.map((ex) => (
           <li
             key={ex.id}
-            className="flex items-center justify-between rounded-xl border border-steel-700 bg-steel-900 px-4 py-3"
+            className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3"
           >
-            <div className="flex items-center gap-3">
-              {photoUrls[ex.id] ? (
-                <button
-                  onClick={() => setEnlargedExerciseId(ex.id)}
-                  className="h-10 w-10 shrink-0 overflow-hidden rounded-lg"
-                >
-                  <img src={photoUrls[ex.id]} alt="" className="h-10 w-10 object-cover" />
-                </button>
-              ) : (
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-dashed border-steel-600 bg-steel-800 text-chalk-600">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    className="h-5 w-5"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
+            {editingId === ex.id ? (
+              <div className="flex flex-col gap-2">
+                <input
+                  autoFocus
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
+                />
+                <MuscleGroupSelect
+                  groups={groups}
+                  value={editGroupId}
+                  onChange={setEditGroupId}
+                  onGroupCreated={(g) => setGroups((prev) => [...prev, g])}
+                  userId={userId}
+                  className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => saveEdit(ex.id)}
+                    disabled={savingEdit || !editName.trim() || !editGroupId}
+                    className="rounded-lg bg-copper-500 px-3 py-1.5 text-xs font-semibold text-steel-950 disabled:opacity-50"
                   >
-                    <rect x="3" y="5" width="18" height="14" rx="2" />
-                    <circle cx="8.5" cy="10" r="1.5" fill="currentColor" stroke="none" />
-                    <path d="M3 16l5-5 4 4 3-3 6 6" />
-                  </svg>
+                    {savingEdit ? "Saving…" : "Save"}
+                  </button>
+                  <button
+                    onClick={() => setEditingId(null)}
+                    className="rounded-lg border border-steel-600 px-3 py-1.5 text-xs text-chalk-300"
+                  >
+                    Cancel
+                  </button>
                 </div>
-              )}
-              <div>
-                <p className="text-chalk-100">{ex.name}</p>
-                <div className="flex flex-wrap gap-2">
-                  {ex.is_custom && (
-                    <span className="font-mono text-[10px] uppercase text-tungsten-400">Custom</span>
-                  )}
-                  {ex.is_unilateral && (
-                    <span className="font-mono text-[10px] uppercase text-copper-400">
-                      Per side
-                    </span>
-                  )}
-                  {ex.is_cardio && (
-                    <span className="font-mono text-[10px] uppercase text-tungsten-400">Cardio</span>
-                  )}
-                  {ex.owner_id === userId && (
+              </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {photoUrls[ex.id] ? (
                     <button
-                      onClick={() => toggleUnilateral(ex)}
-                      className="font-mono text-[10px] uppercase text-chalk-500 underline"
+                      onClick={() => setEnlargedExerciseId(ex.id)}
+                      className="h-10 w-10 shrink-0 overflow-hidden rounded-lg"
                     >
-                      {ex.is_unilateral ? "Make bilateral" : "Make unilateral"}
+                      <img src={photoUrls[ex.id]} alt="" className="h-10 w-10 object-cover" />
                     </button>
+                  ) : (
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-dashed border-steel-600 bg-steel-800 text-chalk-600">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        className="h-5 w-5"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                      >
+                        <rect x="3" y="5" width="18" height="14" rx="2" />
+                        <circle cx="8.5" cy="10" r="1.5" fill="currentColor" stroke="none" />
+                        <path d="M3 16l5-5 4 4 3-3 6 6" />
+                      </svg>
+                    </div>
                   )}
-                  {ex.owner_id === userId && (
+                  <div>
+                    <p className="text-chalk-100">{ex.name}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {ex.is_custom && (
+                        <span className="font-mono text-[10px] uppercase text-tungsten-400">
+                          Custom
+                        </span>
+                      )}
+                      {ex.is_unilateral && (
+                        <span className="font-mono text-[10px] uppercase text-copper-400">
+                          Per side
+                        </span>
+                      )}
+                      {ex.is_cardio && (
+                        <span className="font-mono text-[10px] uppercase text-tungsten-400">
+                          Cardio
+                        </span>
+                      )}
+                      {ex.owner_id === userId && (
+                        <button
+                          onClick={() => startEditing(ex)}
+                          className="font-mono text-[10px] uppercase text-chalk-500 underline"
+                        >
+                          Edit
+                        </button>
+                      )}
+                      {ex.owner_id === userId && (
+                        <button
+                          onClick={() => toggleUnilateral(ex)}
+                          className="font-mono text-[10px] uppercase text-chalk-500 underline"
+                        >
+                          {ex.is_unilateral ? "Make bilateral" : "Make unilateral"}
+                        </button>
+                      )}
+                      {ex.owner_id === userId && (
+                        <button
+                          onClick={() => toggleCardio(ex)}
+                          className="font-mono text-[10px] uppercase text-chalk-500 underline"
+                        >
+                          {ex.is_cardio ? "Unmark cardio" : "Mark as cardio"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {!showHidden && (
+                    <label className="cursor-pointer rounded-lg border border-steel-600 px-3 py-1.5 text-xs text-chalk-300">
+                      {uploadingFor === ex.id ? "Uploading…" : "📷 Photo"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) uploadMachinePhoto(ex.id, file);
+                        }}
+                      />
+                    </label>
+                  )}
+                  {showHidden ? (
                     <button
-                      onClick={() => toggleCardio(ex)}
-                      className="font-mono text-[10px] uppercase text-chalk-500 underline"
+                      onClick={() => unhideExercise(ex.id)}
+                      className="rounded-lg bg-copper-500 px-3 py-1.5 text-xs font-semibold text-steel-950"
                     >
-                      {ex.is_cardio ? "Unmark cardio" : "Mark as cardio"}
+                      Unhide
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => hideExercise(ex.id)}
+                      className="rounded-lg border border-copper-600 px-3 py-1.5 text-xs text-copper-400"
+                    >
+                      Hide
                     </button>
                   )}
                 </div>
               </div>
-            </div>
-            <label className="shrink-0 cursor-pointer rounded-lg border border-steel-600 px-3 py-1.5 text-xs text-chalk-300">
-              {uploadingFor === ex.id ? "Uploading…" : "📷 Photo"}
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) uploadMachinePhoto(ex.id, file);
-                }}
-              />
-            </label>
+            )}
           </li>
         ))}
       </ul>
