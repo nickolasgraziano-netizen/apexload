@@ -39,7 +39,19 @@ export default function WorkoutChooser() {
         <div>
           <p className="text-chalk-100">Build a new workout</p>
           <p className="mt-0.5 text-xs text-chalk-500">
-            Name it, add exercises one at a time, save it for next time
+            Name it, add exercises one at a time, start logging right away
+          </p>
+        </div>
+        <span className="font-mono text-xs text-copper-400">→</span>
+      </Link>
+      <Link
+        href="/workout/plan"
+        className="mt-2 flex items-center justify-between rounded-xl border border-steel-700/60 bg-steel-900/60 px-4 py-3 backdrop-blur-md"
+      >
+        <div>
+          <p className="text-chalk-100">Plan a workout for later</p>
+          <p className="mt-0.5 text-xs text-chalk-500">
+            Save it now, no live logging — start it whenever you're ready
           </p>
         </div>
         <span className="font-mono text-xs text-copper-400">→</span>
