@@ -315,6 +315,7 @@ export default function ImportPhotoPage() {
                         type="number"
                         value={s.reps}
                         onChange={(e) => updateSet(ei, si, { reps: Number(e.target.value) })}
+                        onFocus={(e) => e.target.select()}
                         placeholder="Reps"
                         className="w-16 rounded-lg border border-steel-700 bg-steel-800 px-2 py-2 text-center text-chalk-100"
                       />
@@ -326,6 +327,7 @@ export default function ImportPhotoPage() {
                             weight: e.target.value === "" ? null : Number(e.target.value),
                           })
                         }
+                        onFocus={(e) => e.target.select()}
                         placeholder="lb"
                         className="w-20 rounded-lg border border-steel-700 bg-steel-800 px-2 py-2 text-center text-chalk-100"
                       />
