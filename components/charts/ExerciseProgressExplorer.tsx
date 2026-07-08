@@ -73,10 +73,16 @@ export default function ExerciseProgressExplorer({ exercises }: { exercises: Exe
       ) : (
         <ResponsiveContainer width="100%" height={180} className="mt-3">
           <LineChart data={points}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#262B33" vertical={false} />
-            <XAxis dataKey="label" stroke="#5B636D" fontSize={11} tickLine={false} axisLine={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--color-steel-700))" vertical={false} />
+            <XAxis
+              dataKey="label"
+              stroke="rgb(var(--color-steel-500))"
+              fontSize={11}
+              tickLine={false}
+              axisLine={false}
+            />
             <YAxis
-              stroke="#5B636D"
+              stroke="rgb(var(--color-steel-500))"
               fontSize={11}
               tickLine={false}
               axisLine={false}
@@ -85,20 +91,20 @@ export default function ExerciseProgressExplorer({ exercises }: { exercises: Exe
             />
             <Tooltip
               contentStyle={{
-                background: "#1B1F26",
-                border: "1px solid #262B33",
+                background: "rgb(var(--color-steel-800))",
+                border: "1px solid rgb(var(--color-steel-700))",
                 borderRadius: 8,
                 fontSize: 12,
-                color: "#F5F3EE",
+                color: "rgb(var(--color-chalk-100))",
               }}
               formatter={(value) => [`${value} lb`, "Weight"]}
             />
             <Line
               type="monotone"
               dataKey="weight"
-              stroke="#E34234"
+              stroke="rgb(var(--color-tungsten-500))"
               strokeWidth={2}
-              dot={{ r: 3, fill: "#E34234" }}
+              dot={{ r: 3, fill: "rgb(var(--color-tungsten-500))" }}
             />
           </LineChart>
         </ResponsiveContainer>

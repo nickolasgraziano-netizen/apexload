@@ -14,17 +14,23 @@ import {
 } from "recharts";
 import type { WeeklyMuscleVolume, DifficultyBreakdown, VariantSplit, WeeklySessionCount } from "@/lib/metrics";
 
-const AXIS_COLOR = "#5B636D"; // steel-500
-const GRID_COLOR = "#262B33"; // steel-700
+const AXIS_COLOR = "rgb(var(--color-steel-500))";
+const GRID_COLOR = "rgb(var(--color-steel-700))";
 const TOOLTIP_STYLE = {
-  background: "#1B1F26", // steel-800
-  border: "1px solid #262B33",
+  background: "rgb(var(--color-steel-800))",
+  border: "1px solid rgb(var(--color-steel-700))",
   borderRadius: 8,
   fontSize: 12,
-  color: "#F5F3EE",
+  color: "rgb(var(--color-chalk-100))",
 };
 
-const MUSCLE_GROUP_COLORS = ["#FFD400", "#E34234", "#D8D4CA", "#889099", "#C9A400"];
+const MUSCLE_GROUP_COLORS = [
+  "rgb(var(--color-copper-500))",
+  "rgb(var(--color-tungsten-500))",
+  "rgb(var(--color-chalk-300))",
+  "rgb(var(--color-steel-400))",
+  "rgb(var(--color-copper-700))",
+];
 
 function shortWeekLabel(weekStart: string) {
   const d = new Date(`${weekStart}T00:00:00Z`);
@@ -71,10 +77,10 @@ export function VolumeChart({
 }
 
 const DIFFICULTY_COLORS: Record<string, string> = {
-  easy: "#E34234",
-  moderate: "#D8D4CA",
-  difficult: "#FFD400",
-  failed: "#C9A400",
+  easy: "rgb(var(--color-tungsten-500))",
+  moderate: "rgb(var(--color-chalk-300))",
+  difficult: "rgb(var(--color-copper-500))",
+  failed: "rgb(var(--color-copper-700))",
 };
 
 export function DifficultyChart({ data }: { data: DifficultyBreakdown[] }) {
@@ -103,7 +109,10 @@ export function DifficultyChart({ data }: { data: DifficultyBreakdown[] }) {
   );
 }
 
-const VARIANT_COLORS: Record<string, string> = { standard: "#FFD400", tut: "#E34234" };
+const VARIANT_COLORS: Record<string, string> = {
+  standard: "rgb(var(--color-copper-500))",
+  tut: "rgb(var(--color-tungsten-500))",
+};
 const VARIANT_LABELS: Record<string, string> = { standard: "Standard", tut: "Time Under Tension" };
 
 export function VariantChart({ data }: { data: VariantSplit[] }) {
@@ -151,9 +160,9 @@ export function SessionsPerWeekChart({ data }: { data: WeeklySessionCount[] }) {
         <Line
           type="monotone"
           dataKey="count"
-          stroke="#FFD400"
+          stroke="rgb(var(--color-copper-500))"
           strokeWidth={2}
-          dot={{ r: 3, fill: "#FFD400" }}
+          dot={{ r: 3, fill: "rgb(var(--color-copper-500))" }}
         />
       </LineChart>
     </ResponsiveContainer>
