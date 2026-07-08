@@ -101,7 +101,15 @@ export default async function DashboardPage() {
   });
 
   return (
-    <main className="min-h-screen px-5 pb-24 pt-8">
+    <main className="relative min-h-screen overflow-hidden px-5 pb-24 pt-8">
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-cover bg-top"
+        style={{
+          backgroundImage:
+            "linear-gradient(to bottom, rgb(var(--color-steel-950) / 0.1), rgb(var(--color-steel-950) / 0.55) 55%, rgb(var(--color-steel-950)) 100%), url('/home-bg.jpg')",
+        }}
+      />
+      <div className="relative">
       <header className="mb-8 flex flex-col gap-3">
         {user && <Greeting userId={user.id} displayName={profile?.display_name ?? null} message={message} />}
         <div className="flex flex-wrap gap-2">
@@ -224,6 +232,7 @@ export default async function DashboardPage() {
           </p>
         )}
       </section>
+      </div>
     </main>
   );
 }

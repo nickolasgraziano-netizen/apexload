@@ -46,6 +46,7 @@ export default function EditWorkoutPage() {
   const [notes, setNotes] = useState("");
   const [entries, setEntries] = useState<ExerciseEntry[]>([]);
   const [saving, setSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
 
   const [userId, setUserId] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<(Exercise & { muscle_groups: { name: string } | null })[]>([]);
@@ -216,6 +217,7 @@ export default function EditWorkoutPage() {
 
   async function saveChanges() {
     setSaving(true);
+    setJustSaved(false);
     const supabase = createClient();
     const {
       data: { user },
@@ -307,7 +309,12 @@ export default function EditWorkoutPage() {
     }
     if (rows.length > 0) await supabase.from("sets").insert(rows);
 
-    router.push("/history");
+    // Stay on the page rather than kicking back to History — saving one
+    // change (e.g. adding a set) shouldn't force you out if you're not
+    // done editing yet. "Back to History" below is the explicit exit.
+    setSaving(false);
+    setJustSaved(true);
+    setTimeout(() => setJustSaved(false), 2500);
   }
 
   const filteredCatalog = catalog.filter(
@@ -589,7 +596,13 @@ export default function EditWorkoutPage() {
         disabled={saving}
         className="mt-6 w-full rounded-xl bg-copper-500 px-4 py-4 text-center font-body font-semibold text-steel-950 active:bg-copper-600 disabled:opacity-50"
       >
-        {saving ? "Saving…" : "Save changes"}
+        {saving ? "Saving…" : justSaved ? "Saved ✓" : "Save changes"}
+      </button>
+      <button
+        onClick={() => router.push("/history")}
+        className="mt-3 w-full rounded-xl border border-steel-600 px-4 py-3 text-center text-sm text-chalk-300"
+      >
+        Done — back to History
       </button>
     </main>
   );

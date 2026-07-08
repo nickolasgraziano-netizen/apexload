@@ -146,9 +146,40 @@ export default function ActiveWorkoutPage() {
         JSON.parse(sessionStorage.getItem(`apexload:skipped:${sessionId}`) ?? "[]")
       );
 
-      const planIds: string[] = JSON.parse(
+      let planIds: string[] = JSON.parse(
         sessionStorage.getItem(`apexload:plan:${sessionId}`) ?? "[]"
       );
+
+      // sessionStorage doesn't survive everything (mobile tab eviction,
+      // getting logged out and back in, a different device) — when it's
+      // empty, rebuild the plan from durable sources instead of leaving
+      // the screen with nothing to log against: the template this session
+      // was launched from, plus anything already logged this session that
+      // isn't in that template (added on the fly before storage was lost).
+      if (planIds.length === 0) {
+        const templateId = (sess as WorkoutSession)?.template_id;
+        const templateIds: string[] = [];
+        if (templateId) {
+          const { data: templateExercises } = await supabase
+            .from("workout_template_exercises")
+            .select("exercise_id")
+            .eq("template_id", templateId)
+            .order("position");
+          templateIds.push(...(templateExercises ?? []).map((e) => e.exercise_id as string));
+        }
+
+        const { data: loggedSets } = await supabase
+          .from("sets")
+          .select("exercise_id")
+          .eq("session_id", sessionId)
+          .order("logged_at");
+        const loggedIds = Array.from(
+          new Set((loggedSets ?? []).map((s) => s.exercise_id as string))
+        );
+
+        planIds = [...templateIds, ...loggedIds.filter((id) => !templateIds.includes(id))];
+      }
+
       if (planIds.length > 0) {
         const { data: ex } = await supabase.from("exercises").select("*").in("id", planIds);
         const ordered = planIds
