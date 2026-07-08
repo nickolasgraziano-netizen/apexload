@@ -3,6 +3,53 @@
 @tailwind utilities;
 
 @layer base {
+  /* Theme palettes — RGB channels (space-separated) so Tailwind's
+     rgb(var(--x) / alpha) pattern can apply opacity modifiers. Default
+     (no data-theme attribute, or data-theme="dragon") is "Dragon & Chalk".
+     Add a new theme by adding another [data-theme="..."] block here and
+     an entry in components/ThemeSwitcher.tsx's THEMES list. */
+  :root {
+    --color-steel-950: 11 13 16;
+    --color-steel-900: 19 22 27;
+    --color-steel-800: 27 31 38;
+    --color-steel-700: 38 43 51;
+    --color-steel-600: 58 65 73;
+    --color-steel-500: 91 99 109;
+    --color-steel-400: 136 144 153;
+    --color-chalk-100: 245 243 238;
+    --color-chalk-300: 216 212 202;
+    --color-chalk-500: 169 164 151;
+    --color-copper-400: 255 224 102;
+    --color-copper-500: 255 212 0;
+    --color-copper-600: 230 190 0;
+    --color-copper-700: 201 164 0;
+    --color-tungsten-400: 255 107 87;
+    --color-tungsten-500: 227 66 52;
+    --color-tungsten-600: 196 52 31;
+  }
+
+  /* "Iron & Ember" — dark-gym palette: near-black steel, ember-orange
+     primary accent, electric-blue secondary accent. */
+  [data-theme="iron-ember"] {
+    --color-steel-950: 10 10 12;
+    --color-steel-900: 18 19 22;
+    --color-steel-800: 26 28 32;
+    --color-steel-700: 36 38 43;
+    --color-steel-600: 56 59 66;
+    --color-steel-500: 86 90 99;
+    --color-steel-400: 124 129 139;
+    --color-chalk-100: 242 243 245;
+    --color-chalk-300: 201 204 209;
+    --color-chalk-500: 139 144 154;
+    --color-copper-400: 255 107 74;
+    --color-copper-500: 255 59 31;
+    --color-copper-600: 230 46 20;
+    --color-copper-700: 194 39 16;
+    --color-tungsten-400: 94 200 255;
+    --color-tungsten-500: 47 168 240;
+    --color-tungsten-600: 28 134 199;
+  }
+
   :focus-visible {
     outline: 2px solid theme("colors.copper.500");
     outline-offset: 2px;
@@ -17,8 +64,8 @@
      visible to blend with, instead of blurring a flat solid color. */
   body {
     background-image:
-      radial-gradient(600px circle at 85% 0%, rgb(255 212 0 / 0.08), transparent 60%),
-      radial-gradient(500px circle at 0% 100%, rgb(227 66 52 / 0.06), transparent 60%);
+      radial-gradient(600px circle at 85% 0%, rgb(var(--color-copper-500) / 0.08), transparent 60%),
+      radial-gradient(500px circle at 0% 100%, rgb(var(--color-tungsten-500) / 0.06), transparent 60%);
     background-attachment: fixed;
   }
 
