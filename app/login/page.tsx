@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -42,8 +43,16 @@ export default function LoginPage() {
 
   return (
     <main className="flex min-h-screen flex-col justify-center px-6">
-      <p className="font-mono text-xs uppercase tracking-widest text-copper-500">ApexLoad</p>
-      <h1 className="mt-1 font-display text-3xl font-extrabold text-chalk-100">
+      <Image
+        src="/logo.png"
+        alt="ApexLoad"
+        width={220}
+        height={144}
+        priority
+        unoptimized
+        className="h-auto w-[220px]"
+      />
+      <h1 className="mt-4 font-display text-3xl font-extrabold text-chalk-100">
         {mode === "signin" ? "Welcome back" : "Create your account"}
       </h1>
 
