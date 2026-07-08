@@ -42,7 +42,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col justify-center px-6">
+    <main className="flex min-h-screen flex-col items-center justify-center px-6">
       <Image
         src="/logo.png"
         alt="ApexLoad"
@@ -52,11 +52,11 @@ export default function LoginPage() {
         unoptimized
         className="h-auto w-[220px]"
       />
-      <h1 className="mt-4 font-display text-3xl font-extrabold text-chalk-100">
+      <h1 className="mt-4 text-center font-display text-3xl font-extrabold text-chalk-100">
         {mode === "signin" ? "Welcome back" : "Create your account"}
       </h1>
 
-      <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
+      <form onSubmit={handleSubmit} className="mt-8 flex w-full flex-col gap-4">
         {mode === "signup" && (
           <label className="flex flex-col gap-1">
             <span className="font-mono text-xs uppercase tracking-widest text-chalk-500">Name</span>
