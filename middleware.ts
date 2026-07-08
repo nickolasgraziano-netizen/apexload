@@ -49,5 +49,10 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Public static assets (logo, icons, etc.) must stay reachable even when
+  // logged out — otherwise the login page itself can't show the logo,
+  // since the middleware would redirect the image request to /login too.
+  matcher: [
+    "/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:png|jpg|jpeg|svg|webp|ico|gif)$).*)",
+  ],
 };

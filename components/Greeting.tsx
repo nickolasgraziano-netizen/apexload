@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { firstNameFrom } from "@/lib/motivation";
@@ -30,7 +31,10 @@ export default function Greeting({ userId, displayName, message }: Props) {
   if (editing) {
     return (
       <div className="flex flex-col gap-2">
-        <p className="font-mono text-xs uppercase tracking-widest text-copper-500">ApexLoad</p>
+        <div className="flex items-center gap-2">
+          <Image src="/logo-mark.png" alt="" width={28} height={28} unoptimized className="h-7 w-7" />
+          <p className="font-mono text-xs uppercase tracking-widest text-copper-500">ApexLoad</p>
+        </div>
         <input
           autoFocus
           value={name}
@@ -62,7 +66,10 @@ export default function Greeting({ userId, displayName, message }: Props) {
 
   return (
     <div>
-      <p className="font-mono text-xs uppercase tracking-widest text-copper-500">ApexLoad</p>
+      <div className="flex items-center gap-2">
+        <Image src="/logo-mark.png" alt="" width={28} height={28} unoptimized className="h-7 w-7" />
+        <p className="font-mono text-xs uppercase tracking-widest text-copper-500">ApexLoad</p>
+      </div>
       <h1 className="font-display text-2xl font-bold text-chalk-100">
         Welcome back, {firstNameFrom(displayName)}{" "}
         <button
