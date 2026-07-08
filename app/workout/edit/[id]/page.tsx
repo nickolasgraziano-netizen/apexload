@@ -391,6 +391,7 @@ export default function EditWorkoutPage() {
                     onChange={(e) =>
                       updateCardioEntry(entry.exercise.id, { cardioDurationMinutes: e.target.value })
                     }
+                    onFocus={(e) => e.target.select()}
                     className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
                   />
                 </label>
@@ -402,6 +403,7 @@ export default function EditWorkoutPage() {
                     onChange={(e) =>
                       updateCardioEntry(entry.exercise.id, { cardioCalories: e.target.value })
                     }
+                    onFocus={(e) => e.target.select()}
                     className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
                   />
                 </label>
@@ -427,13 +429,19 @@ export default function EditWorkoutPage() {
                     type="number"
                     value={s.reps}
                     onChange={(e) => updateSetRow(entry.exercise.id, i, { reps: Number(e.target.value) })}
+                    onFocus={(e) => e.target.select()}
                     placeholder="Reps"
                     className="w-16 rounded-lg border border-steel-700 bg-steel-800 px-2 py-2 text-center text-chalk-100"
                   />
                   <input
                     type="number"
-                    value={s.weight}
-                    onChange={(e) => updateSetRow(entry.exercise.id, i, { weight: Number(e.target.value) })}
+                    value={s.weight === 0 ? "" : s.weight}
+                    onChange={(e) =>
+                      updateSetRow(entry.exercise.id, i, {
+                        weight: e.target.value === "" ? 0 : Number(e.target.value),
+                      })
+                    }
+                    onFocus={(e) => e.target.select()}
                     placeholder="lb"
                     className="w-20 rounded-lg border border-steel-700 bg-steel-800 px-2 py-2 text-center text-chalk-100"
                   />

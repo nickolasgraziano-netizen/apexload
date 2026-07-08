@@ -899,6 +899,7 @@ export default function ActiveWorkoutPage() {
                       autoFocus
                       value={cardioDurationMinutes}
                       onChange={(e) => setCardioDurationMinutes(e.target.value)}
+                      onFocus={(e) => e.target.select()}
                       className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
                     />
                   </label>
@@ -910,6 +911,7 @@ export default function ActiveWorkoutPage() {
                       type="number"
                       value={cardioCalories}
                       onChange={(e) => setCardioCalories(e.target.value)}
+                      onFocus={(e) => e.target.select()}
                       className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
                     />
                   </label>
@@ -1126,6 +1128,7 @@ export default function ActiveWorkoutPage() {
                     type="number"
                     value={reps}
                     onChange={(e) => updateDraft({ reps: Number(e.target.value) })}
+                    onFocus={(e) => e.target.select()}
                     className="mt-1 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
                   />
                 </label>
@@ -1133,8 +1136,9 @@ export default function ActiveWorkoutPage() {
                   <span className="font-mono text-xs text-chalk-500">Weight ({"lb"})</span>
                   <input
                     type="number"
-                    value={weight}
-                    onChange={(e) => updateDraft({ weight: Number(e.target.value) })}
+                    value={weight === 0 ? "" : weight}
+                    onChange={(e) => updateDraft({ weight: e.target.value === "" ? 0 : Number(e.target.value) })}
+                    onFocus={(e) => e.target.select()}
                     className="mt-1 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
                   />
                 </label>

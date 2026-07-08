@@ -30,13 +30,15 @@ export default function SetRow({ set, onUpdate, onDelete }: Props) {
             type="number"
             value={reps}
             onChange={(e) => setReps(Number(e.target.value))}
+            onFocus={(e) => e.target.select()}
             className="w-16 rounded-lg border border-steel-700 bg-steel-800 px-2 py-2 text-center text-chalk-100"
           />
           <span className="self-center text-chalk-500">reps @</span>
           <input
             type="number"
-            value={weight}
-            onChange={(e) => setWeight(Number(e.target.value))}
+            value={weight === 0 ? "" : weight}
+            onChange={(e) => setWeight(e.target.value === "" ? 0 : Number(e.target.value))}
+            onFocus={(e) => e.target.select()}
             className="w-20 rounded-lg border border-steel-700 bg-steel-800 px-2 py-2 text-center text-chalk-100"
           />
           <span className="self-center text-chalk-500">{set.weight_unit}</span>
