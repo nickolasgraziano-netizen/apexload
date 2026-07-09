@@ -77,11 +77,11 @@ describe("computeVariantSplit", () => {
 describe("computeMuscleGroupFreshness", () => {
   const now = new Date("2026-07-10T00:00:00Z");
 
-  it("reports days since the most recent completed session per group", () => {
+  it("reports days since the most recently logged set per muscle group", () => {
     const result = computeMuscleGroupFreshness(
       [
-        { muscle_group_id: "legs", started_at: "2026-07-05T00:00:00Z", ended_at: "2026-07-05T01:00:00Z" },
-        { muscle_group_id: "legs", started_at: "2026-07-08T00:00:00Z", ended_at: "2026-07-08T01:00:00Z" },
+        { muscle_group_id: "legs", logged_at: "2026-07-05T00:00:00Z" },
+        { muscle_group_id: "legs", logged_at: "2026-07-08T00:00:00Z" },
       ],
       ["legs", "chest"],
       now
@@ -92,13 +92,16 @@ describe("computeMuscleGroupFreshness", () => {
     ]);
   });
 
-  it("ignores sessions that were never completed", () => {
+  it("returns null for muscle groups with no logged sets", () => {
     const result = computeMuscleGroupFreshness(
-      [{ muscle_group_id: "legs", started_at: "2026-07-09T00:00:00Z", ended_at: null }],
-      ["legs"],
+      [{ muscle_group_id: "legs", logged_at: "2026-07-09T00:00:00Z" }],
+      ["legs", "back"],
       now
     );
-    expect(result).toEqual([{ muscleGroupId: "legs", daysSinceLastTrained: null }]);
+    expect(result).toEqual([
+      { muscleGroupId: "legs", daysSinceLastTrained: 1 },
+      { muscleGroupId: "back", daysSinceLastTrained: null },
+    ]);
   });
 });
 

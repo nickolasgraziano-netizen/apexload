@@ -63,6 +63,7 @@ export default function ActiveWorkoutPage() {
   const [motivationMessage, setMotivationMessage] = useState("");
 
   const [showPicker, setShowPicker] = useState(false);
+  const [pickerMode, setPickerMode] = useState<"add" | "switch">("add");
   const [catalog, setCatalog] = useState<(Exercise & { muscle_groups: { name: string } | null })[]>([]);
   const [pickerQuery, setPickerQuery] = useState("");
 
@@ -85,6 +86,9 @@ export default function ActiveWorkoutPage() {
   // Exercises the lifter skipped this session (e.g. machine unavailable) —
   // kept per-session so we can prompt to circle back before ending.
   const [skippedIds, setSkippedIds] = useState<string[]>([]);
+  // Exercise ids with at least one logged set this session — everything
+  // else in the plan is "untouched" and worth flagging before ending.
+  const [loggedExerciseIds, setLoggedExerciseIds] = useState<string[]>([]);
   const [showEndPrompt, setShowEndPrompt] = useState(false);
 
   // Supersets: 2-3 exercise tabs rotated between sets. Grouping can be
@@ -150,6 +154,19 @@ export default function ActiveWorkoutPage() {
         sessionStorage.getItem(`apexload:plan:${sessionId}`) ?? "[]"
       );
 
+      // Which exercises already have at least one logged set this session —
+      // used both to rebuild a lost plan and to know which planned exercises
+      // are still untouched for the end-of-workout prompt.
+      const { data: loggedSets } = await supabase
+        .from("sets")
+        .select("exercise_id")
+        .eq("session_id", sessionId)
+        .order("logged_at");
+      const loggedIds = Array.from(
+        new Set((loggedSets ?? []).map((s) => s.exercise_id as string))
+      );
+      setLoggedExerciseIds(loggedIds);
+
       // sessionStorage doesn't survive everything (mobile tab eviction,
       // getting logged out and back in, a different device) — when it's
       // empty, rebuild the plan from durable sources instead of leaving
@@ -167,15 +184,6 @@ export default function ActiveWorkoutPage() {
             .order("position");
           templateIds.push(...(templateExercises ?? []).map((e) => e.exercise_id as string));
         }
-
-        const { data: loggedSets } = await supabase
-          .from("sets")
-          .select("exercise_id")
-          .eq("session_id", sessionId)
-          .order("logged_at");
-        const loggedIds = Array.from(
-          new Set((loggedSets ?? []).map((s) => s.exercise_id as string))
-        );
 
         planIds = [...templateIds, ...loggedIds.filter((id) => !templateIds.includes(id))];
       }
@@ -386,6 +394,9 @@ export default function ActiveWorkoutPage() {
     }
 
     setSkippedIds((prev) => prev.filter((id) => id !== activeExercise.id));
+    setLoggedExerciseIds((prev) =>
+      prev.includes(activeExercise.id) ? prev : [...prev, activeExercise.id]
+    );
     setCardioEditing(false);
   }
 
@@ -427,6 +438,9 @@ export default function ActiveWorkoutPage() {
 
     // Actually doing the exercise after all un-skips it.
     setSkippedIds((prev) => prev.filter((id) => id !== activeExercise.id));
+    setLoggedExerciseIds((prev) =>
+      prev.includes(activeExercise.id) ? prev : [...prev, activeExercise.id]
+    );
 
     // Alternate sides automatically — right then left, matching how a set
     // of unilateral work is actually performed.
@@ -458,7 +472,13 @@ export default function ActiveWorkoutPage() {
   async function deleteSet(id: string) {
     const supabase = createClient();
     await supabase.from("sets").delete().eq("id", id);
-    setSessionSets((prev) => prev.filter((s) => s.id !== id));
+    setSessionSets((prev) => {
+      const next = prev.filter((s) => s.id !== id);
+      if (next.length === 0 && activeExercise) {
+        setLoggedExerciseIds((ids) => ids.filter((exId) => exId !== activeExercise.id));
+      }
+      return next;
+    });
   }
 
   async function saveNotes() {
@@ -467,8 +487,15 @@ export default function ActiveWorkoutPage() {
     await supabase.from("sessions").update({ notes: trimmed }).eq("id", sessionId);
   }
 
+  // Anything planned that isn't explicitly skipped but also has zero logged
+  // sets this session — abandoned mid-switch, or just never gotten to.
+  const untouchedIds = plannedExercises
+    .map((e) => e.id)
+    .filter((id) => !skippedIds.includes(id) && !loggedExerciseIds.includes(id));
+  const outstandingIds = [...skippedIds, ...untouchedIds];
+
   function requestEndWorkout() {
-    if (skippedIds.length > 0) {
+    if (outstandingIds.length > 0) {
       setShowEndPrompt(true);
       return;
     }
@@ -510,7 +537,8 @@ export default function ActiveWorkoutPage() {
     setTemplateSaved(true);
   }
 
-  async function openPicker() {
+  async function openPicker(mode: "add" | "switch" = "add") {
+    setPickerMode(mode);
     setShowPicker(true);
     if (catalog.length > 0) return;
     const supabase = createClient();
@@ -522,18 +550,43 @@ export default function ActiveWorkoutPage() {
   }
 
   function addExerciseToSession(ex: Exercise) {
+    // "Switch" should replace the exercise you're bailing on, not just stack
+    // another tab — but only if you haven't logged anything for it yet this
+    // session (don't want to silently drop work you already did).
+    const shouldReplace =
+      pickerMode === "switch" &&
+      activeExercise != null &&
+      activeExercise.id !== ex.id &&
+      sessionSets.length === 0;
+    const replacingId = shouldReplace ? activeExercise!.id : null;
+
     setPlannedExercises((prev) => {
-      const existingIndex = prev.findIndex((p) => p.id === ex.id);
+      const withoutReplaced = replacingId ? prev.filter((p) => p.id !== replacingId) : prev;
+      const existingIndex = withoutReplaced.findIndex((p) => p.id === ex.id);
       if (existingIndex !== -1) {
         setActiveIndex(existingIndex);
-        return prev;
+        return withoutReplaced;
       }
-      setActiveIndex(prev.length);
-      return [...prev, ex];
+      if (replacingId) {
+        const originalIndex = prev.findIndex((p) => p.id === replacingId);
+        const insertAt = Math.min(originalIndex, withoutReplaced.length);
+        const next = [...withoutReplaced];
+        next.splice(insertAt, 0, ex);
+        setActiveIndex(insertAt);
+        return next;
+      }
+      setActiveIndex(withoutReplaced.length);
+      return [...withoutReplaced, ex];
     });
+
+    if (replacingId) {
+      setSkippedIds((prev) => prev.filter((id) => id !== replacingId));
+    }
+
     setJustLoggedSet(false);
     setShowPicker(false);
     setPickerQuery("");
+    setPickerMode("add");
   }
 
   const filteredCatalog = catalog.filter((ex) =>
@@ -577,22 +630,25 @@ export default function ActiveWorkoutPage() {
 
   return (
     <main className="min-h-screen px-5 pb-40 pt-6">
-      <div className="flex items-center justify-end gap-3">
+      <div className="flex items-center justify-end gap-2">
         <button
           onClick={() => setShowNotes((v) => !v)}
-          className="font-mono text-xs text-chalk-500 underline"
+          className="rounded-lg border border-steel-600 px-3 py-1.5 font-mono text-xs text-chalk-300"
         >
           {notes ? "Edit note" : "Add note"}
         </button>
         {plannedExercises.length > 0 && (
           <button
             onClick={() => setShowSaveTemplate(true)}
-            className="font-mono text-xs text-chalk-500 underline"
+            className="rounded-lg border border-steel-600 px-3 py-1.5 font-mono text-xs text-chalk-300"
           >
             Save as template
           </button>
         )}
-        <button onClick={requestEndWorkout} className="font-mono text-xs text-copper-400">
+        <button
+          onClick={requestEndWorkout}
+          className="rounded-lg border border-copper-500/60 px-3 py-1.5 font-mono text-xs text-copper-400"
+        >
           End workout
         </button>
       </div>
@@ -600,11 +656,12 @@ export default function ActiveWorkoutPage() {
       {showEndPrompt && (
         <div className="mt-3 rounded-xl border border-tungsten-500 bg-tungsten-600/10 p-4">
           <p className="text-sm text-tungsten-400">
-            You skipped {skippedIds.length === 1 ? "an exercise" : `${skippedIds.length} exercises`}{" "}
-            this workout:
+            {outstandingIds.length === 1
+              ? "You haven't logged a set for 1 exercise this workout:"
+              : `You haven't logged a set for ${outstandingIds.length} exercises this workout:`}
           </p>
           <div className="mt-2 flex flex-col gap-2">
-            {skippedIds.map((id) => {
+            {outstandingIds.map((id) => {
               const ex = plannedExercises.find((e) => e.id === id);
               if (!ex) return null;
               return (
@@ -744,7 +801,7 @@ export default function ActiveWorkoutPage() {
               );
             })}
             <button
-              onClick={openPicker}
+              onClick={() => openPicker("add")}
               className="shrink-0 snap-start rounded-full border border-dashed border-steel-600 px-3 py-1.5 text-xs text-chalk-300"
             >
               + Exercise
@@ -791,7 +848,7 @@ export default function ActiveWorkoutPage() {
 
       {plannedExercises.length === 0 && (
         <button
-          onClick={openPicker}
+          onClick={() => openPicker("add")}
           className="mt-3 w-full rounded-xl border border-dashed border-steel-600 py-3 text-sm text-chalk-300"
         >
           + Add an exercise
@@ -881,7 +938,7 @@ export default function ActiveWorkoutPage() {
               </h1>
             </div>
             <button
-              onClick={openPicker}
+              onClick={() => openPicker("switch")}
               className="shrink-0 rounded-lg border border-steel-600 px-3 py-1.5 font-mono text-xs text-chalk-300"
             >
               Switch
@@ -1097,7 +1154,7 @@ export default function ActiveWorkoutPage() {
                 <button
                   onClick={() => {
                     setJustLoggedSet(false);
-                    openPicker();
+                    openPicker("switch");
                   }}
                   className="w-full rounded-xl border border-steel-600 py-3 font-semibold text-chalk-300"
                 >
