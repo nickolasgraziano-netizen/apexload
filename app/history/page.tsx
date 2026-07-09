@@ -236,9 +236,17 @@ export default function HistoryPage() {
           <p className="font-mono text-xs uppercase tracking-widest text-copper-500">ApexLoad</p>
           <h1 className="mt-1 font-display text-3xl font-extrabold text-chalk-100">History</h1>
         </div>
-        <Link href="/" className="font-mono text-xs text-chalk-500 underline">
-          Home
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/workout/import"
+            className="rounded-lg border border-steel-600/60 bg-steel-900/40 px-3 py-1.5 font-mono text-xs text-chalk-300 backdrop-blur-md"
+          >
+            + Add past workout
+          </Link>
+          <Link href="/" className="font-mono text-xs text-chalk-500 underline">
+            Home
+          </Link>
+        </div>
       </div>
 
       {loading ? (
