@@ -88,19 +88,18 @@ export interface MuscleGroupFreshness {
 
 /**
  * How long it's been since each muscle group was last trained, measured
- * from a completed session. Surfaces neglected groups at a glance.
+ * from logged sets (via each set's exercise) rather than sessions — a
+ * session no longer carries a single muscle group now that templates mix
+ * muscle groups freely. Surfaces neglected groups at a glance.
  */
 export function computeMuscleGroupFreshness(
-  sessions: { muscle_group_id: string | null; started_at: string; ended_at: string | null }[],
+  sets: { muscle_group_id: string; logged_at: string }[],
   muscleGroupIds: string[],
   now: Date = new Date()
 ): MuscleGroupFreshness[] {
   const lastTrained = new Map<string, number>();
-  for (const s of sessions) {
-    // Template-launched sessions have no single muscle group — skip them,
-    // consistent with templates sitting outside the rotation system.
-    if (!s.ended_at || !s.muscle_group_id) continue;
-    const t = new Date(s.started_at).getTime();
+  for (const s of sets) {
+    const t = new Date(s.logged_at).getTime();
     const current = lastTrained.get(s.muscle_group_id);
     if (current == null || t > current) lastTrained.set(s.muscle_group_id, t);
   }

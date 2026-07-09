@@ -39,27 +39,27 @@ export default async function ProgressPage() {
   const { data: setRows } = await supabase
     .from("sets")
     .select(
-      "weight, actual_reps, difficulty, training_variant, logged_at, exercise_id, exercises ( name ), sessions ( muscle_group_id )"
+      "weight, actual_reps, difficulty, training_variant, logged_at, exercise_id, exercises ( name, muscle_group_id )"
     );
   const sets = (setRows ?? []) as any[];
 
   const { data: exerciseRows } = await supabase.from("exercises").select("*").order("name");
   const exercises = (exerciseRows ?? []) as Exercise[];
 
-  const volumeSets = sets
-    .filter((s) => s.sessions?.muscle_group_id)
+  const setsWithMuscleGroup = sets
+    .filter((s) => s.exercises?.muscle_group_id)
     .map((s) => ({
       weight: s.weight,
       actual_reps: s.actual_reps,
       logged_at: s.logged_at,
-      muscle_group_id: s.sessions.muscle_group_id,
+      muscle_group_id: s.exercises.muscle_group_id as string,
     }));
 
-  const weeklyVolume = computeWeeklyVolume(volumeSets);
+  const weeklyVolume = computeWeeklyVolume(setsWithMuscleGroup);
   const difficultyBreakdown = computeDifficultyBreakdown(sets);
   const variantSplit = computeVariantSplit(sets);
   const freshness = computeMuscleGroupFreshness(
-    sessions,
+    setsWithMuscleGroup,
     muscleGroups.map((g) => g.id)
   );
   const sessionsPerWeek = computeSessionsPerWeek(sessions);
