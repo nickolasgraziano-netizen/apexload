@@ -419,8 +419,8 @@ export default function ActiveWorkoutPage() {
 
     // Superset-aware rest: short between exercises in the cycle, long once
     // you've cycled back through every exercise in the group. Otherwise a
-    // flat 15s default — adjustable in the timer itself in 15s increments.
-    let rest = 15;
+    // flat 30s default — adjustable in the timer itself in 15s increments.
+    let rest = 30;
     if (activeGroup) {
       const isLastInGroup =
         activeGroup.exerciseIds[activeGroup.exerciseIds.length - 1] === activeExercise.id;

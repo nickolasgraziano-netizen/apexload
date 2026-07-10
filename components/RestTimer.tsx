@@ -19,7 +19,7 @@ interface Props {
  * the tab is backgrounded isn't achievable from the web platform, so this
  * assumes the phone stays unlocked and the app stays in view during a set.
  */
-export default function RestTimer({ defaultSeconds = 15, message, onDismiss }: Props) {
+export default function RestTimer({ defaultSeconds = 30, message, onDismiss }: Props) {
   const [endAt, setEndAt] = useState(() => computeTimerEndTimestamp(defaultSeconds));
   const [remaining, setRemaining] = useState(defaultSeconds);
   const chimedRef = useRef(false);
