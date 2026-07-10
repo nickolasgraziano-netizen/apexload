@@ -132,3 +132,92 @@ export function computeSessionsPerWeek(
     .map(([weekStart, count]) => ({ weekStart, count }))
     .sort((a, b) => a.weekStart.localeCompare(b.weekStart));
 }
+
+/** Whole minutes between two ISO timestamps, floored at 0. */
+export function computeDurationMinutes(startedAt: string, endedAt: string): number {
+  return Math.max(0, Math.round((new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 60000));
+}
+
+export interface SessionSetInput {
+  exercise_id: string;
+  weight: number | null;
+  actual_reps: number | null;
+  duration_seconds: number | null;
+}
+
+export interface SessionExerciseSummary {
+  exerciseId: string;
+  exerciseName: string;
+  isCardio: boolean;
+  setCount: number;
+  volume: number; // 0 for cardio
+  topWeight: number | null; // heaviest single set this session; null for cardio/unlogged
+  totalDurationSeconds: number; // 0 for strength exercises
+  isPR: boolean; // topWeight beat every prior all-time set for this exercise
+}
+
+export interface SessionSummary {
+  totalSets: number;
+  totalVolume: number;
+  prCount: number;
+  exercises: SessionExerciseSummary[];
+}
+
+/**
+ * Rolls up one session's logged sets into a per-exercise breakdown plus
+ * session-wide totals. A PR is "this session's top weight beat every prior
+ * set for that exercise" — including exercises with no prior history at
+ * all, consistent with findLatestPR's treatment of a first-ever set.
+ */
+export function computeSessionSummary(
+  sets: SessionSetInput[],
+  exerciseInfo: Map<string, { name: string; isCardio: boolean }>,
+  priorMaxWeightByExercise: Map<string, number>
+): SessionSummary {
+  const byExercise = new Map<string, SessionSetInput[]>();
+  for (const s of sets) {
+    const list = byExercise.get(s.exercise_id) ?? [];
+    list.push(s);
+    byExercise.set(s.exercise_id, list);
+  }
+
+  const exercises: SessionExerciseSummary[] = [];
+  let totalVolume = 0;
+  let prCount = 0;
+
+  for (const [exerciseId, exSets] of byExercise) {
+    const info = exerciseInfo.get(exerciseId);
+    const exerciseName = info?.name ?? "Unknown exercise";
+    const isCardio = info?.isCardio ?? false;
+    const volume = exSets.reduce(
+      (sum, s) => sum + (s.weight != null && s.actual_reps != null ? s.weight * s.actual_reps : 0),
+      0
+    );
+    const topWeight = exSets.reduce<number | null>(
+      (max, s) => (s.weight != null && (max == null || s.weight > max) ? s.weight : max),
+      null
+    );
+    const totalDurationSeconds = exSets.reduce((sum, s) => sum + (s.duration_seconds ?? 0), 0);
+    const priorMax = priorMaxWeightByExercise.get(exerciseId) ?? 0;
+    const isPR = !isCardio && topWeight != null && topWeight > priorMax;
+    if (isPR) prCount++;
+    totalVolume += volume;
+    exercises.push({
+      exerciseId,
+      exerciseName,
+      isCardio,
+      setCount: exSets.length,
+      volume,
+      topWeight,
+      totalDurationSeconds,
+      isPR,
+    });
+  }
+
+  return {
+    totalSets: sets.length,
+    totalVolume,
+    prCount,
+    exercises: exercises.sort((a, b) => a.exerciseName.localeCompare(b.exerciseName)),
+  };
+}
