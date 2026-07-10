@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   computeDifficultyBreakdown,
+  computeDurationMinutes,
   computeMuscleGroupFreshness,
   computeSessionsPerWeek,
+  computeSessionSummary,
   computeVariantSplit,
   computeWeeklyVolume,
   isoWeekStart,
@@ -117,5 +119,82 @@ describe("computeSessionsPerWeek", () => {
       { weekStart: "2026-06-01", count: 2 },
       { weekStart: "2026-06-08", count: 1 },
     ]);
+  });
+});
+
+describe("computeDurationMinutes", () => {
+  it("returns whole minutes between two timestamps", () => {
+    expect(computeDurationMinutes("2026-07-05T10:00:00Z", "2026-07-05T10:42:30Z")).toBe(43);
+  });
+
+  it("floors at 0 for an end time before the start", () => {
+    expect(computeDurationMinutes("2026-07-05T10:00:00Z", "2026-07-05T09:00:00Z")).toBe(0);
+  });
+});
+
+describe("computeSessionSummary", () => {
+  const exerciseInfo = new Map([
+    ["bench", { name: "Barbell Bench Press", isCardio: false }],
+    ["row", { name: "Barbell Row", isCardio: false }],
+    ["elliptical", { name: "Elliptical", isCardio: true }],
+  ]);
+
+  it("rolls up per-exercise volume, top weight, and totals", () => {
+    const result = computeSessionSummary(
+      [
+        { exercise_id: "bench", weight: 135, actual_reps: 10, duration_seconds: null },
+        { exercise_id: "bench", weight: 145, actual_reps: 8, duration_seconds: null },
+        { exercise_id: "row", weight: 95, actual_reps: 10, duration_seconds: null },
+      ],
+      exerciseInfo,
+      new Map()
+    );
+    expect(result.totalSets).toBe(3);
+    expect(result.totalVolume).toBe(135 * 10 + 145 * 8 + 95 * 10);
+    const bench = result.exercises.find((e) => e.exerciseId === "bench")!;
+    expect(bench.setCount).toBe(2);
+    expect(bench.topWeight).toBe(145);
+    expect(bench.volume).toBe(135 * 10 + 145 * 8);
+  });
+
+  it("flags a PR when this session's top weight beats prior history", () => {
+    const result = computeSessionSummary(
+      [{ exercise_id: "bench", weight: 150, actual_reps: 5, duration_seconds: null }],
+      exerciseInfo,
+      new Map([["bench", 145]])
+    );
+    expect(result.exercises[0].isPR).toBe(true);
+    expect(result.prCount).toBe(1);
+  });
+
+  it("does not flag a PR when this session's top weight doesn't beat prior history", () => {
+    const result = computeSessionSummary(
+      [{ exercise_id: "bench", weight: 140, actual_reps: 5, duration_seconds: null }],
+      exerciseInfo,
+      new Map([["bench", 145]])
+    );
+    expect(result.exercises[0].isPR).toBe(false);
+    expect(result.prCount).toBe(0);
+  });
+
+  it("treats a first-ever set (no prior history) as a PR", () => {
+    const result = computeSessionSummary(
+      [{ exercise_id: "bench", weight: 95, actual_reps: 10, duration_seconds: null }],
+      exerciseInfo,
+      new Map()
+    );
+    expect(result.exercises[0].isPR).toBe(true);
+  });
+
+  it("never flags cardio as a PR and tracks duration instead of volume", () => {
+    const result = computeSessionSummary(
+      [{ exercise_id: "elliptical", weight: null, actual_reps: null, duration_seconds: 1200 }],
+      exerciseInfo,
+      new Map()
+    );
+    const elliptical = result.exercises[0];
+    expect(elliptical.isPR).toBe(false);
+    expect(elliptical.volume).toBe(0);
+    expect(elliptical.totalDurationSeconds).toBe(1200);
   });
 });

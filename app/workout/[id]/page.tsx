@@ -59,7 +59,13 @@ export default function ActiveWorkoutPage() {
   const [drafts, setDrafts] = useState<Record<string, SetDraft>>({});
   const [showTimer, setShowTimer] = useState(false);
   const [restKey, setRestKey] = useState(0); // bump to force a fresh countdown, even mid-rest
+  // Drives the "what's next" quick-action panel — shown either right after
+  // logging a set, or when navigating to an exercise already logged this
+  // session (so you see a summary + actions instead of a blank entry form).
   const [justLoggedSet, setJustLoggedSet] = useState(false);
+  // Distinguishes "you just logged a set" (true) from "you're revisiting an
+  // already-logged exercise" (false), purely for the panel's heading text.
+  const [freshLog, setFreshLog] = useState(false);
   const [motivationMessage, setMotivationMessage] = useState("");
 
   const [showPicker, setShowPicker] = useState(false);
@@ -315,8 +321,14 @@ export default function ActiveWorkoutPage() {
   }, [skippedIds, sessionId]);
 
   function goToExercise(index: number) {
+    const ex = plannedExercises[index];
     setActiveIndex(index);
-    setJustLoggedSet(false);
+    setFreshLog(false);
+    // Landing on an exercise you already logged sets for this session shows
+    // the same quick-action panel as just having logged a set — a summary
+    // of what's done plus "add another set" / "switch exercise" — instead
+    // of dropping straight into a blank entry form.
+    setJustLoggedSet(ex ? loggedExerciseIds.includes(ex.id) : false);
   }
 
   function goToNextExercise() {
@@ -407,8 +419,8 @@ export default function ActiveWorkoutPage() {
 
     // Superset-aware rest: short between exercises in the cycle, long once
     // you've cycled back through every exercise in the group. Otherwise a
-    // flat 30s default — adjustable in the timer itself in 15s increments.
-    let rest = 30;
+    // flat 15s default — adjustable in the timer itself in 15s increments.
+    let rest = 15;
     if (activeGroup) {
       const isLastInGroup =
         activeGroup.exerciseIds[activeGroup.exerciseIds.length - 1] === activeExercise.id;
@@ -461,6 +473,7 @@ export default function ActiveWorkoutPage() {
     setShowTimer(true);
     setRestKey((k) => k + 1);
     setJustLoggedSet(true);
+    setFreshLog(true);
   }
 
   async function updateSet(id: string, patch: Partial<LoggedSet>) {
@@ -506,7 +519,7 @@ export default function ActiveWorkoutPage() {
     const supabase = createClient();
     await supabase.from("sessions").update({ ended_at: new Date().toISOString() }).eq("id", sessionId);
     sessionStorage.removeItem(`apexload:skipped:${sessionId}`);
-    router.push("/");
+    router.push(`/workout/${sessionId}/summary`);
   }
 
   function resumeSkippedExercise(exerciseId: string) {
@@ -583,7 +596,8 @@ export default function ActiveWorkoutPage() {
       setSkippedIds((prev) => prev.filter((id) => id !== replacingId));
     }
 
-    setJustLoggedSet(false);
+    setFreshLog(false);
+    setJustLoggedSet(loggedExerciseIds.includes(ex.id));
     setShowPicker(false);
     setPickerQuery("");
     setPickerMode("add");
@@ -781,8 +795,7 @@ export default function ActiveWorkoutPage() {
                       toggleGroupingSelection(ex.id);
                       return;
                     }
-                    setActiveIndex(i);
-                    setJustLoggedSet(false);
+                    goToExercise(i);
                   }}
                   className={`shrink-0 snap-start rounded-full px-3 py-1.5 text-xs ${
                     groupingMode
@@ -877,8 +890,7 @@ export default function ActiveWorkoutPage() {
                     <button
                       key={ex.id}
                       onClick={() => {
-                        setActiveIndex(i);
-                        setJustLoggedSet(false);
+                        goToExercise(i);
                         setShowPicker(false);
                       }}
                       className="rounded-full border border-steel-600 px-3 py-1.5 text-xs text-chalk-300"
@@ -1116,7 +1128,9 @@ export default function ActiveWorkoutPage() {
 
           {justLoggedSet ? (
             <div className="mt-4 rounded-xl border border-steel-700 bg-steel-900 p-4">
-              <p className="text-center font-body text-chalk-100">Set logged. What's next?</p>
+              <p className="text-center font-body text-chalk-100">
+                {freshLog ? "Set logged. What's next?" : "Already logged today. What's next?"}
+              </p>
               <div className="mt-3 flex flex-col gap-2">
                 {activeGroup &&
                   (() => {

@@ -19,7 +19,7 @@ interface Props {
  * the tab is backgrounded isn't achievable from the web platform, so this
  * assumes the phone stays unlocked and the app stays in view during a set.
  */
-export default function RestTimer({ defaultSeconds = 90, message, onDismiss }: Props) {
+export default function RestTimer({ defaultSeconds = 15, message, onDismiss }: Props) {
   const [endAt, setEndAt] = useState(() => computeTimerEndTimestamp(defaultSeconds));
   const [remaining, setRemaining] = useState(defaultSeconds);
   const chimedRef = useRef(false);
@@ -38,7 +38,14 @@ export default function RestTimer({ defaultSeconds = 90, message, onDismiss }: P
   }, [endAt]);
 
   function addSeconds(delta: number) {
-    setEndAt((prev) => Math.max(Date.now(), prev) + delta * 1000);
+    setEndAt((prev) => {
+      const next = Math.max(Date.now(), prev) + delta * 1000;
+      // Update the displayed number immediately rather than waiting for the
+      // next 250ms tick — otherwise a tap can look like it did nothing (or
+      // did the opposite) for a moment right after you press it.
+      setRemaining(secondsRemaining(next));
+      return next;
+    });
   }
 
   const total = Math.max(remaining, 1);
@@ -59,17 +66,17 @@ export default function RestTimer({ defaultSeconds = 90, message, onDismiss }: P
             {remaining === 0 ? "Go" : `0:${String(remaining).padStart(2, "0")}`}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           <button
             onClick={() => addSeconds(-15)}
-            className="rounded-lg border border-steel-600 px-3 py-2 font-mono text-sm text-chalk-300"
+            className="rounded-lg border border-steel-600 px-4 py-2.5 font-mono text-sm text-chalk-300"
             aria-label="Subtract 15 seconds"
           >
             -15s
           </button>
           <button
             onClick={() => addSeconds(15)}
-            className="rounded-lg border border-steel-600 px-3 py-2 font-mono text-sm text-chalk-300"
+            className="rounded-lg border border-steel-600 px-4 py-2.5 font-mono text-sm text-chalk-300"
             aria-label="Add 15 seconds"
           >
             +15s
