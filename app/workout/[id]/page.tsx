@@ -5,12 +5,14 @@ import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { suggestNextWeight } from "@/lib/suggestions";
 import { buildMotivationalMessage } from "@/lib/motivation";
-import { saveWorkoutTemplate } from "@/lib/templates";
+import { saveWorkoutTemplate, updateWorkoutTemplate } from "@/lib/templates";
 import RestTimer from "@/components/RestTimer";
 import SetRow from "@/components/SetRow";
+import MuscleGroupSelect from "@/components/MuscleGroupSelect";
 import type {
   Exercise,
   LoggedSet,
+  MuscleGroup,
   TrainingVariant,
   WorkoutSession,
   SetDifficulty,
@@ -51,7 +53,6 @@ export default function ActiveWorkoutPage() {
 
   const [allSets, setAllSets] = useState<LoggedSet[]>([]); // history for suggestion engine
   const [sessionSets, setSessionSets] = useState<LoggedSet[]>([]); // this session only
-  const [previousWeekSets, setPreviousWeekSets] = useState<LoggedSet[]>([]);
   const [machinePhotoUrl, setMachinePhotoUrl] = useState<string | null>(null);
 
   // Per-exercise unsaved set drafts, so hopping between exercises never loses
@@ -69,9 +70,26 @@ export default function ActiveWorkoutPage() {
   const [motivationMessage, setMotivationMessage] = useState("");
 
   const [showPicker, setShowPicker] = useState(false);
-  const [pickerMode, setPickerMode] = useState<"add" | "switch">("add");
+  const [pickerMode, setPickerMode] = useState<"add" | "switch" | "superset">("add");
   const [catalog, setCatalog] = useState<(Exercise & { muscle_groups: { name: string } | null })[]>([]);
   const [pickerQuery, setPickerQuery] = useState("");
+
+  // The template this session was launched from (if any) — lets "+ Exercise"
+  // and the tab ✕ optionally resync the saved template, not just this
+  // session's ephemeral plan, so plans can grow/shrink permanently.
+  const [template, setTemplate] = useState<{ id: string; name: string; notes: string | null } | null>(
+    null
+  );
+  const [persistToTemplate, setPersistToTemplate] = useState(false);
+
+  // Inline "add a custom exercise" sub-form inside the picker.
+  const [groups, setGroups] = useState<MuscleGroup[]>([]);
+  const [newExerciseName, setNewExerciseName] = useState("");
+  const [newExerciseGroupId, setNewExerciseGroupId] = useState("");
+  const [newExerciseIsUnilateral, setNewExerciseIsUnilateral] = useState(false);
+  const [newExerciseIsCardio, setNewExerciseIsCardio] = useState(false);
+  const [newExerciseError, setNewExerciseError] = useState<string | null>(null);
+  const [creatingExercise, setCreatingExercise] = useState(false);
 
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
   const [templateName, setTemplateName] = useState("");
@@ -217,24 +235,18 @@ export default function ActiveWorkoutPage() {
         }))
       );
 
-      // Previous week: most recent PRIOR session for this same muscle group.
-      // Skipped for template-launched sessions, which have no single group.
-      if (sess && sess.muscle_group_id) {
-        const { data: prevSession } = await supabase
-          .from("sessions")
-          .select("*")
-          .eq("muscle_group_id", sess.muscle_group_id)
-          .lt("started_at", sess.started_at)
-          .order("started_at", { ascending: false })
-          .limit(1)
+      // The template this session came from, if any — needed so "+ Exercise"
+      // and tab removal can offer to resync the saved plan, not just this
+      // session's copy of it.
+      const templateId = (sess as WorkoutSession)?.template_id;
+      if (templateId) {
+        const { data: templateRow } = await supabase
+          .from("workout_templates")
+          .select("id, name, notes")
+          .eq("id", templateId)
           .maybeSingle();
-
-        if (prevSession) {
-          const { data: prevSets } = await supabase
-            .from("sets")
-            .select("*")
-            .eq("session_id", prevSession.id);
-          setPreviousWeekSets((prevSets ?? []) as LoggedSet[]);
+        if (templateRow) {
+          setTemplate(templateRow as { id: string; name: string; notes: string | null });
         }
       }
     })();
@@ -297,6 +309,19 @@ export default function ActiveWorkoutPage() {
     if (!activeExercise) return null;
     return suggestNextWeight(allSets, activeExercise.id, variant);
   }, [allSets, activeExercise, variant]);
+
+  // The last time this exercise was logged, regardless of which session or
+  // template it happened under — allSets is already this exercise's most
+  // recent 20 sets, newest first, so the first set from a different session
+  // than this one tells us which session was "last time".
+  const previousSessionSets = useMemo(() => {
+    const others = allSets.filter((s) => s.session_id !== sessionId);
+    if (others.length === 0) return [];
+    const mostRecentSessionId = others[0].session_id;
+    return others
+      .filter((s) => s.session_id === mostRecentSessionId)
+      .sort((a, b) => a.set_number - b.set_number);
+  }, [allSets, sessionId]);
 
   // Only seed the suggested weight the first time this exercise gets a
   // draft — once the lifter has their own draft going, don't clobber it.
@@ -550,19 +575,75 @@ export default function ActiveWorkoutPage() {
     setTemplateSaved(true);
   }
 
-  async function openPicker(mode: "add" | "switch" = "add") {
+  async function openPicker(mode: "add" | "switch" | "superset" = "add") {
     setPickerMode(mode);
     setShowPicker(true);
-    if (catalog.length > 0) return;
     const supabase = createClient();
-    const { data } = await supabase
-      .from("exercises")
-      .select("*, muscle_groups ( name )")
-      .order("name");
-    setCatalog((data ?? []) as (Exercise & { muscle_groups: { name: string } | null })[]);
+    if (catalog.length === 0) {
+      const { data } = await supabase
+        .from("exercises")
+        .select("*, muscle_groups ( name )")
+        .order("name");
+      setCatalog((data ?? []) as (Exercise & { muscle_groups: { name: string } | null })[]);
+    }
+    if (groups.length === 0) {
+      const { data } = await supabase.from("muscle_groups").select("*").order("name");
+      setGroups((data ?? []) as MuscleGroup[]);
+    }
+  }
+
+  // Resyncs a template-launched session's saved template to match a given
+  // exercise/superset list — the shared mechanism behind letting a plan
+  // permanently grow (checkbox on add) or shrink (✕ on a tab) over time.
+  async function syncTemplateToMatch(exerciseIds: string[], groupsForSync: string[][]) {
+    if (!template) return;
+    const supabase = createClient();
+    await updateWorkoutTemplate(
+      supabase,
+      template.id,
+      template.name,
+      exerciseIds,
+      groupsForSync,
+      template.notes
+    );
+  }
+
+  async function createSupersetGroup(exerciseIds: string[]) {
+    if (!userId || exerciseIds.length < 2) return;
+    const supabase = createClient();
+    const { data: group } = await supabase
+      .from("superset_groups")
+      .insert({ session_id: sessionId, user_id: userId })
+      .select()
+      .single();
+    if (!group) return;
+
+    await supabase.from("superset_group_exercises").insert(
+      exerciseIds.map((exerciseId, position) => ({
+        group_id: group.id,
+        exercise_id: exerciseId,
+        position,
+      }))
+    );
+
+    setSupersetGroups((prev) => [...prev, { id: group.id, exerciseIds }]);
   }
 
   function addExerciseToSession(ex: Exercise) {
+    // Picking an exercise to superset with never adds/replaces a tab on its
+    // own — it just pairs the two exercises (adding the picked one to the
+    // plan first if it's brand new to this session).
+    if (pickerMode === "superset") {
+      if (activeExercise && activeExercise.id !== ex.id) {
+        setPlannedExercises((prev) => (prev.some((p) => p.id === ex.id) ? prev : [...prev, ex]));
+        createSupersetGroup([activeExercise.id, ex.id]);
+      }
+      setShowPicker(false);
+      setPickerQuery("");
+      setPickerMode("add");
+      return;
+    }
+
     // "Switch" should replace the exercise you're bailing on, not just stack
     // another tab — but only if you haven't logged anything for it yet this
     // session (don't want to silently drop work you already did).
@@ -573,11 +654,14 @@ export default function ActiveWorkoutPage() {
       sessionSets.length === 0;
     const replacingId = shouldReplace ? activeExercise!.id : null;
 
+    let resultingExerciseIds: string[] | null = null;
+
     setPlannedExercises((prev) => {
       const withoutReplaced = replacingId ? prev.filter((p) => p.id !== replacingId) : prev;
       const existingIndex = withoutReplaced.findIndex((p) => p.id === ex.id);
       if (existingIndex !== -1) {
         setActiveIndex(existingIndex);
+        resultingExerciseIds = withoutReplaced.map((p) => p.id);
         return withoutReplaced;
       }
       if (replacingId) {
@@ -586,14 +670,21 @@ export default function ActiveWorkoutPage() {
         const next = [...withoutReplaced];
         next.splice(insertAt, 0, ex);
         setActiveIndex(insertAt);
+        resultingExerciseIds = next.map((p) => p.id);
         return next;
       }
       setActiveIndex(withoutReplaced.length);
-      return [...withoutReplaced, ex];
+      const next = [...withoutReplaced, ex];
+      resultingExerciseIds = next.map((p) => p.id);
+      return next;
     });
 
     if (replacingId) {
       setSkippedIds((prev) => prev.filter((id) => id !== replacingId));
+    }
+
+    if (pickerMode === "add" && persistToTemplate && resultingExerciseIds) {
+      syncTemplateToMatch(resultingExerciseIds, supersetGroups.map((g) => g.exerciseIds));
     }
 
     setFreshLog(false);
@@ -601,6 +692,76 @@ export default function ActiveWorkoutPage() {
     setShowPicker(false);
     setPickerQuery("");
     setPickerMode("add");
+    setPersistToTemplate(false);
+  }
+
+  // Removing a tab is only offered for exercises with nothing logged this
+  // session yet, so it can never discard already-logged work.
+  function removeExerciseFromSession(ex: Exercise) {
+    const removedIndex = plannedExercises.findIndex((p) => p.id === ex.id);
+    if (removedIndex === -1) return;
+    const next = plannedExercises.filter((p) => p.id !== ex.id);
+    const nextIds = next.map((p) => p.id);
+
+    setPlannedExercises(next);
+    if (removedIndex === activeIndex) {
+      const newIndex = Math.min(activeIndex, next.length - 1);
+      setActiveIndex(newIndex);
+      setFreshLog(false);
+      setJustLoggedSet(next[newIndex] ? loggedExerciseIds.includes(next[newIndex].id) : false);
+    } else if (removedIndex < activeIndex) {
+      setActiveIndex(activeIndex - 1);
+    }
+
+    setSkippedIds((prev) => prev.filter((id) => id !== ex.id));
+    const remainingGroups = supersetGroups
+      .map((g) => ({ ...g, exerciseIds: g.exerciseIds.filter((id) => id !== ex.id) }))
+      .filter((g) => g.exerciseIds.length >= 2);
+    setSupersetGroups(remainingGroups);
+
+    if (template) {
+      const alsoRemoveFromTemplate = confirm(
+        `Also remove ${ex.name} from your "${template.name}" template so it won't appear next time?`
+      );
+      if (alsoRemoveFromTemplate) {
+        syncTemplateToMatch(nextIds, remainingGroups.map((g) => g.exerciseIds));
+      }
+    }
+  }
+
+  async function addCustomExerciseAndUse() {
+    if (!newExerciseName.trim() || !newExerciseGroupId || !userId) return;
+    setCreatingExercise(true);
+    setNewExerciseError(null);
+    const supabase = createClient();
+    const { data: newExercise, error } = await supabase
+      .from("exercises")
+      .insert({
+        owner_id: userId,
+        muscle_group_id: newExerciseGroupId,
+        name: newExerciseName.trim(),
+        is_custom: true,
+        is_unilateral: newExerciseIsUnilateral,
+        is_cardio: newExerciseIsCardio,
+      })
+      .select()
+      .single();
+
+    setCreatingExercise(false);
+    if (error || !newExercise) {
+      setNewExerciseError("Couldn't add that exercise. Try again.");
+      return;
+    }
+
+    const groupName = groups.find((g) => g.id === newExerciseGroupId)?.name ?? "";
+    setCatalog((prev) => [
+      ...prev,
+      { ...(newExercise as Exercise), muscle_groups: { name: groupName } },
+    ]);
+    setNewExerciseName("");
+    setNewExerciseIsUnilateral(false);
+    setNewExerciseIsCardio(false);
+    addExerciseToSession(newExercise as Exercise);
   }
 
   const filteredCatalog = catalog.filter((ex) =>
@@ -618,29 +779,11 @@ export default function ActiveWorkoutPage() {
   }
 
   async function confirmSuperset() {
-    if (groupingSelection.length < 2 || !userId) return;
-    const supabase = createClient();
-    const { data: group } = await supabase
-      .from("superset_groups")
-      .insert({ session_id: sessionId, user_id: userId })
-      .select()
-      .single();
-    if (!group) return;
-
-    await supabase.from("superset_group_exercises").insert(
-      groupingSelection.map((exerciseId, position) => ({
-        group_id: group.id,
-        exercise_id: exerciseId,
-        position,
-      }))
-    );
-
-    setSupersetGroups((prev) => [...prev, { id: group.id, exerciseIds: groupingSelection }]);
+    if (groupingSelection.length < 2) return;
+    await createSupersetGroup(groupingSelection);
     setGroupingMode(false);
     setGroupingSelection([]);
   }
-
-  const prevWeekForExercise = previousWeekSets.filter((s) => s.exercise_id === activeExercise?.id);
 
   return (
     <main className="min-h-screen px-5 pb-40 pt-6">
@@ -787,17 +930,12 @@ export default function ActiveWorkoutPage() {
             {plannedExercises.map((ex, i) => {
               const inGroup = supersetGroups.some((g) => g.exerciseIds.includes(ex.id));
               const selected = groupingSelection.includes(ex.id);
+              const removable =
+                !groupingMode && plannedExercises.length > 1 && !loggedExerciseIds.includes(ex.id);
               return (
-                <button
+                <div
                   key={ex.id}
-                  onClick={() => {
-                    if (groupingMode) {
-                      toggleGroupingSelection(ex.id);
-                      return;
-                    }
-                    goToExercise(i);
-                  }}
-                  className={`shrink-0 snap-start rounded-full px-3 py-1.5 text-xs ${
+                  className={`flex shrink-0 snap-start items-center rounded-full text-xs ${
                     groupingMode
                       ? selected
                         ? "bg-tungsten-500 text-steel-950"
@@ -807,10 +945,30 @@ export default function ActiveWorkoutPage() {
                         : "border border-steel-600 text-chalk-300"
                   }`}
                 >
-                  {inGroup && !groupingMode && "⚡ "}
-                  {skippedIds.includes(ex.id) && "⏭ "}
-                  {ex.name}
-                </button>
+                  <button
+                    onClick={() => {
+                      if (groupingMode) {
+                        toggleGroupingSelection(ex.id);
+                        return;
+                      }
+                      goToExercise(i);
+                    }}
+                    className={`py-1.5 pl-3 ${removable ? "pr-1" : "pr-3"}`}
+                  >
+                    {inGroup && !groupingMode && "⚡ "}
+                    {skippedIds.includes(ex.id) && "⏭ "}
+                    {ex.name}
+                  </button>
+                  {removable && (
+                    <button
+                      onClick={() => removeExerciseFromSession(ex)}
+                      aria-label={`Remove ${ex.name}`}
+                      className="py-1.5 pl-1 pr-2.5 opacity-70"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               );
             })}
             <button
@@ -872,7 +1030,11 @@ export default function ActiveWorkoutPage() {
         <div className="mt-3 rounded-xl border border-steel-700 bg-steel-900 p-3">
           <div className="flex items-center justify-between">
             <p className="font-mono text-xs uppercase tracking-widest text-chalk-500">
-              Switch or add an exercise
+              {pickerMode === "switch"
+                ? "Switch exercise"
+                : pickerMode === "superset"
+                  ? "Pick an exercise to superset with"
+                  : "Add an exercise"}
             </p>
             <button onClick={() => setShowPicker(false)} className="text-xs text-chalk-500">
               Close
@@ -885,11 +1047,21 @@ export default function ActiveWorkoutPage() {
                 Today's workout
               </p>
               <div className="mt-1 flex flex-wrap gap-2">
-                {plannedExercises.map((ex, i) =>
-                  i === activeIndex ? null : (
+                {plannedExercises.map((ex, i) => {
+                  if (i === activeIndex) return null;
+                  if (pickerMode === "superset" && supersetGroups.some((g) => g.exerciseIds.includes(ex.id))) {
+                    return null;
+                  }
+                  return (
                     <button
                       key={ex.id}
                       onClick={() => {
+                        if (pickerMode === "superset") {
+                          if (activeExercise) createSupersetGroup([activeExercise.id, ex.id]);
+                          setShowPicker(false);
+                          setPickerMode("add");
+                          return;
+                        }
                         goToExercise(i);
                         setShowPicker(false);
                       }}
@@ -897,14 +1069,14 @@ export default function ActiveWorkoutPage() {
                     >
                       {ex.name}
                     </button>
-                  )
-                )}
+                  );
+                })}
               </div>
             </div>
           )}
 
           <p className="mt-3 font-mono text-[10px] uppercase tracking-widest text-chalk-500">
-            Or add from the full catalog
+            {pickerMode === "superset" ? "Or pick from the full catalog" : "Or add from the full catalog"}
           </p>
           <input
             autoFocus
@@ -931,6 +1103,63 @@ export default function ActiveWorkoutPage() {
               <p className="px-3 py-2 text-sm text-chalk-500">Loading…</p>
             )}
           </ul>
+
+          {pickerMode === "add" && template && (
+            <label className="mt-3 flex items-center gap-2 text-xs text-chalk-300">
+              <input
+                type="checkbox"
+                checked={persistToTemplate}
+                onChange={(e) => setPersistToTemplate(e.target.checked)}
+              />
+              Also add to "{template.name}" so it's there next time
+            </label>
+          )}
+
+          <div className="mt-3 border-t border-steel-700 pt-3">
+            <p className="font-mono text-[10px] uppercase tracking-widest text-chalk-500">
+              Can't find it? Add a custom exercise
+            </p>
+            <div className="mt-2 flex flex-col gap-2">
+              <input
+                placeholder="Exercise name"
+                value={newExerciseName}
+                onChange={(e) => setNewExerciseName(e.target.value)}
+                className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
+              />
+              <MuscleGroupSelect
+                groups={groups}
+                value={newExerciseGroupId}
+                onChange={setNewExerciseGroupId}
+                onGroupCreated={(g) => setGroups((prev) => [...prev, g])}
+                userId={userId}
+                className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
+              />
+              <label className="flex items-center gap-2 text-sm text-chalk-300">
+                <input
+                  type="checkbox"
+                  checked={newExerciseIsUnilateral}
+                  onChange={(e) => setNewExerciseIsUnilateral(e.target.checked)}
+                />
+                Unilateral (train each side separately)
+              </label>
+              <label className="flex items-center gap-2 text-sm text-chalk-300">
+                <input
+                  type="checkbox"
+                  checked={newExerciseIsCardio}
+                  onChange={(e) => setNewExerciseIsCardio(e.target.checked)}
+                />
+                Cardio (logged by duration, not sets)
+              </label>
+              {newExerciseError && <p className="text-xs text-copper-400">{newExerciseError}</p>}
+              <button
+                onClick={addCustomExerciseAndUse}
+                disabled={creatingExercise || !newExerciseName.trim() || !newExerciseGroupId}
+                className="rounded-lg bg-copper-500 py-2 text-sm font-semibold text-steel-950 disabled:opacity-50"
+              >
+                {creatingExercise ? "Adding…" : "Add and use"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1042,13 +1271,13 @@ export default function ActiveWorkoutPage() {
             </div>
           ) : (
             <>
-          {prevWeekForExercise.length > 0 && (
+          {previousSessionSets.length > 0 && (
             <div className="mt-2 rounded-xl border border-steel-700 bg-steel-900 p-3">
               <p className="font-mono text-[10px] uppercase tracking-widest text-chalk-500">
-                Last week
+                Last time
               </p>
               <div className="mt-1 flex flex-wrap gap-2">
-                {prevWeekForExercise.map((s) => (
+                {previousSessionSets.map((s) => (
                   <span
                     key={s.id}
                     className="rounded-md bg-steel-800 px-2 py-1 font-mono text-xs text-chalk-300"
@@ -1174,6 +1403,17 @@ export default function ActiveWorkoutPage() {
                 >
                   Switch exercise
                 </button>
+                {!activeGroup && (
+                  <button
+                    onClick={() => {
+                      setJustLoggedSet(false);
+                      openPicker("superset");
+                    }}
+                    className="w-full rounded-xl border border-dashed border-tungsten-500 py-3 font-semibold text-tungsten-400"
+                  >
+                    ⚡ Superset with…
+                  </button>
+                )}
                 {plannedExercises.length > 1 && (
                   <button
                     onClick={skipExercise}
