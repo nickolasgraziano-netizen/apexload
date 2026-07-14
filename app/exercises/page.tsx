@@ -13,6 +13,7 @@ export default function ExerciseCatalogPage() {
   const [query, setQuery] = useState("");
   const [sortMode, setSortMode] = useState<"alpha" | "group">("alpha");
   const [customOnly, setCustomOnly] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
   const [newName, setNewName] = useState("");
   const [newGroupId, setNewGroupId] = useState("");
   const [newIsUnilateral, setNewIsUnilateral] = useState(false);
@@ -108,6 +109,7 @@ export default function ExerciseCatalogPage() {
     setNewName("");
     setNewIsUnilateral(false);
     setNewIsCardio(false);
+    setShowAddForm(false);
     refresh();
   }
 
@@ -302,9 +304,21 @@ export default function ExerciseCatalogPage() {
         >
           My custom only
         </button>
+        {!showHidden && (
+          <button
+            onClick={() => setShowAddForm((v) => !v)}
+            className={`rounded-lg px-3 py-1.5 font-mono text-xs uppercase tracking-widest ${
+              showAddForm
+                ? "bg-tungsten-500 text-steel-950"
+                : "border border-dashed border-steel-600/60 bg-steel-900/40 text-chalk-300 backdrop-blur-md"
+            }`}
+          >
+            {showAddForm ? "Cancel" : "+ Add custom exercise"}
+          </button>
+        )}
       </div>
 
-      {!showHidden && (
+      {!showHidden && showAddForm && (
         <section className="mt-6 rounded-2xl border border-steel-700 bg-steel-900 p-4">
           <h2 className="font-mono text-xs uppercase tracking-widest text-chalk-500">
             Add custom exercise
