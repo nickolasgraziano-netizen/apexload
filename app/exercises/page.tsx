@@ -13,6 +13,8 @@ export default function ExerciseCatalogPage() {
   const [query, setQuery] = useState("");
   const [sortMode, setSortMode] = useState<"alpha" | "group">("alpha");
   const [customOnly, setCustomOnly] = useState(false);
+  // Browsing always wins by default since it's the far more common action.
+  const [pickerTab, setPickerTab] = useState<"browse" | "custom">("browse");
   const [newName, setNewName] = useState("");
   const [newGroupId, setNewGroupId] = useState("");
   const [newIsUnilateral, setNewIsUnilateral] = useState(false);
@@ -108,6 +110,7 @@ export default function ExerciseCatalogPage() {
     setNewName("");
     setNewIsUnilateral(false);
     setNewIsCardio(false);
+    setPickerTab("browse");
     refresh();
   }
 
@@ -254,7 +257,7 @@ export default function ExerciseCatalogPage() {
           <p className="font-mono text-xs uppercase tracking-widest text-copper-500">Catalog</p>
           <h1 className="mt-1 font-display text-3xl font-extrabold text-chalk-100">Exercises</h1>
         </div>
-        {(hiddenIds.size > 0 || showHidden) && (
+        {pickerTab === "browse" && (hiddenIds.size > 0 || showHidden) && (
           <button
             onClick={() => setShowHidden((v) => !v)}
             className="rounded-lg border border-steel-600/60 bg-steel-900/40 px-3 py-1.5 font-mono text-xs text-chalk-300 backdrop-blur-md"
@@ -264,105 +267,80 @@ export default function ExerciseCatalogPage() {
         )}
       </div>
 
-      <input
-        placeholder="Search exercises…"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        className="mt-5 w-full rounded-xl border border-steel-500 bg-steel-900 px-4 py-3 text-chalk-100 outline-none placeholder:text-chalk-500 focus:border-copper-500"
-      />
-
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-5 flex gap-2">
         <button
-          onClick={() => setSortMode("alpha")}
-          className={`rounded-lg px-3 py-1.5 font-mono text-xs uppercase tracking-widest ${
-            sortMode === "alpha"
+          onClick={() => setPickerTab("browse")}
+          className={`flex-1 rounded-lg py-2 font-mono text-xs uppercase tracking-widest ${
+            pickerTab === "browse"
               ? "bg-copper-500 text-steel-950"
-              : "border border-steel-600/60 bg-steel-900/40 text-chalk-300 backdrop-blur-md"
+              : "border border-steel-600 text-chalk-300"
           }`}
         >
-          A–Z
+          Browse catalog
         </button>
         <button
-          onClick={() => setSortMode("group")}
-          className={`rounded-lg px-3 py-1.5 font-mono text-xs uppercase tracking-widest ${
-            sortMode === "group"
-              ? "bg-copper-500 text-steel-950"
-              : "border border-steel-600/60 bg-steel-900/40 text-chalk-300 backdrop-blur-md"
+          onClick={() => setPickerTab("custom")}
+          className={`flex-1 rounded-lg py-2 font-mono text-xs uppercase tracking-widest ${
+            pickerTab === "custom"
+              ? "bg-tungsten-500 text-steel-950"
+              : "border border-steel-600 text-chalk-300"
           }`}
         >
-          By muscle group
-        </button>
-        <button
-          onClick={() => setCustomOnly((v) => !v)}
-          className={`rounded-lg px-3 py-1.5 font-mono text-xs uppercase tracking-widest ${
-            customOnly
-              ? "bg-copper-500 text-steel-950"
-              : "border border-steel-600/60 bg-steel-900/40 text-chalk-300 backdrop-blur-md"
-          }`}
-        >
-          My custom only
+          Create custom
         </button>
       </div>
 
-      {!showHidden && (
-        <section className="mt-6 rounded-2xl border border-steel-700 bg-steel-900 p-4">
-          <h2 className="font-mono text-xs uppercase tracking-widest text-chalk-500">
-            Add custom exercise
-          </h2>
-          <div className="mt-2 flex flex-col gap-2">
-            <input
-              placeholder="Exercise name"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
-            />
-            <MuscleGroupSelect
-              groups={groups}
-              value={newGroupId}
-              onChange={(id) => {
-                setNewGroupId(id);
-                setAddError(null);
-              }}
-              onGroupCreated={(g) => setGroups((prev) => [...prev, g])}
-              userId={userId}
-              className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
-            />
-            <label className="flex items-center gap-2 text-sm text-chalk-300">
-              <input
-                type="checkbox"
-                checked={newIsUnilateral}
-                onChange={(e) => setNewIsUnilateral(e.target.checked)}
-              />
-              Unilateral (train each side separately)
-            </label>
-            <label className="flex items-center gap-2 text-sm text-chalk-300">
-              <input
-                type="checkbox"
-                checked={newIsCardio}
-                onChange={(e) => setNewIsCardio(e.target.checked)}
-              />
-              Cardio (logged by duration, not sets)
-            </label>
-            {addError && <p className="text-xs text-copper-400">{addError}</p>}
+      {pickerTab === "browse" ? (
+        <>
+          <input
+            placeholder="Search exercises…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="mt-3 w-full rounded-xl border border-steel-500 bg-steel-900 px-4 py-3 text-chalk-100 outline-none placeholder:text-chalk-500 focus:border-copper-500"
+          />
+
+          <div className="mt-3 flex flex-wrap gap-2">
             <button
-              onClick={addCustomExercise}
-              className="rounded-lg bg-copper-500 py-2 text-sm font-semibold text-steel-950"
+              onClick={() => setSortMode("alpha")}
+              className={`rounded-lg px-3 py-1.5 font-mono text-xs uppercase tracking-widest ${
+                sortMode === "alpha"
+                  ? "bg-copper-500 text-steel-950"
+                  : "border border-steel-600/60 bg-steel-900/40 text-chalk-300 backdrop-blur-md"
+              }`}
             >
-              Add
+              A–Z
+            </button>
+            <button
+              onClick={() => setSortMode("group")}
+              className={`rounded-lg px-3 py-1.5 font-mono text-xs uppercase tracking-widest ${
+                sortMode === "group"
+                  ? "bg-copper-500 text-steel-950"
+                  : "border border-steel-600/60 bg-steel-900/40 text-chalk-300 backdrop-blur-md"
+              }`}
+            >
+              By muscle group
+            </button>
+            <button
+              onClick={() => setCustomOnly((v) => !v)}
+              className={`rounded-lg px-3 py-1.5 font-mono text-xs uppercase tracking-widest ${
+                customOnly
+                  ? "bg-copper-500 text-steel-950"
+                  : "border border-steel-600/60 bg-steel-900/40 text-chalk-300 backdrop-blur-md"
+              }`}
+            >
+              My custom only
             </button>
           </div>
-        </section>
-      )}
 
-      {showHidden && sorted.length === 0 && (
-        <p className="mt-6 text-sm text-chalk-500">Nothing hidden.</p>
-      )}
-      {!showHidden && customOnly && sorted.length === 0 && (
-        <p className="mt-6 text-sm text-chalk-500">No custom exercises yet.</p>
-      )}
+          {showHidden && sorted.length === 0 && (
+            <p className="mt-6 text-sm text-chalk-500">Nothing hidden.</p>
+          )}
+          {!showHidden && customOnly && sorted.length === 0 && (
+            <p className="mt-6 text-sm text-chalk-500">No custom exercises yet.</p>
+          )}
 
-      <ul className="mt-6 flex flex-col gap-2">
-        {sorted.map((ex, i) => {
+          <ul className="mt-6 flex flex-col gap-2">
+            {sorted.map((ex, i) => {
           const groupName = groupNameById.get(ex.muscle_group_id) ?? "Other";
           const prevGroupName =
             i > 0 ? groupNameById.get(sorted[i - 1].muscle_group_id) ?? "Other" : null;
@@ -514,7 +492,58 @@ export default function ExerciseCatalogPage() {
           </li>
           );
         })}
-      </ul>
+          </ul>
+        </>
+      ) : (
+        <section className="mt-3 rounded-2xl border border-steel-700 bg-steel-900 p-4">
+          <h2 className="font-mono text-xs uppercase tracking-widest text-chalk-500">
+            Add custom exercise
+          </h2>
+          <div className="mt-2 flex flex-col gap-2">
+            <input
+              autoFocus
+              placeholder="Exercise name"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
+            />
+            <MuscleGroupSelect
+              groups={groups}
+              value={newGroupId}
+              onChange={(id) => {
+                setNewGroupId(id);
+                setAddError(null);
+              }}
+              onGroupCreated={(g) => setGroups((prev) => [...prev, g])}
+              userId={userId}
+              className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
+            />
+            <label className="flex items-center gap-2 text-sm text-chalk-300">
+              <input
+                type="checkbox"
+                checked={newIsUnilateral}
+                onChange={(e) => setNewIsUnilateral(e.target.checked)}
+              />
+              Unilateral (train each side separately)
+            </label>
+            <label className="flex items-center gap-2 text-sm text-chalk-300">
+              <input
+                type="checkbox"
+                checked={newIsCardio}
+                onChange={(e) => setNewIsCardio(e.target.checked)}
+              />
+              Cardio (logged by duration, not sets)
+            </label>
+            {addError && <p className="text-xs text-copper-400">{addError}</p>}
+            <button
+              onClick={addCustomExercise}
+              className="rounded-lg bg-copper-500 py-2 text-sm font-semibold text-steel-950"
+            >
+              Add
+            </button>
+          </div>
+        </section>
+      )}
 
       {enlargedExerciseId && photoUrls[enlargedExerciseId] && (
         <div

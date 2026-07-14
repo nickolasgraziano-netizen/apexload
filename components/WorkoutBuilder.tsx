@@ -52,6 +52,9 @@ export default function WorkoutBuilder({
   const [showPicker, setShowPicker] = useState(false);
   const [pickerQuery, setPickerQuery] = useState("");
   const [pickerGroupId, setPickerGroupId] = useState("");
+  // Which half of the picker is showing — browsing always wins by default
+  // since it's the far more common action.
+  const [pickerTab, setPickerTab] = useState<"browse" | "custom">("browse");
   const [newName, setNewName] = useState("");
   const [newGroupId, setNewGroupId] = useState("");
   const [newIsCardio, setNewIsCardio] = useState(false);
@@ -297,7 +300,10 @@ export default function WorkoutBuilder({
 
         {!groupingMode && (
           <button
-            onClick={() => setShowPicker(true)}
+            onClick={() => {
+              setShowPicker(true);
+              setPickerTab("browse");
+            }}
             className="mt-2 w-full rounded-xl border border-dashed border-steel-600 py-3 text-sm text-chalk-300"
           >
             + Add exercise
@@ -314,54 +320,77 @@ export default function WorkoutBuilder({
                 Close
               </button>
             </div>
-            <input
-              autoFocus
-              placeholder="Search by name…"
-              value={pickerQuery}
-              onChange={(e) => setPickerQuery(e.target.value)}
-              className="mt-2 w-full rounded-lg border border-steel-500 bg-steel-800 px-3 py-2 text-sm text-chalk-100 outline-none placeholder:text-chalk-500 focus:border-copper-500"
-            />
-            <select
-              value={pickerGroupId}
-              onChange={(e) => setPickerGroupId(e.target.value)}
-              className="mt-2 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
-            >
-              <option value="">All muscle groups</option>
-              {groups.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
-                </option>
-              ))}
-            </select>
-            <ul className="mt-2 flex max-h-60 flex-col gap-1 overflow-y-auto">
-              {filteredCatalog.map((ex) => (
-                <li key={ex.id}>
-                  <button
-                    onClick={() => addExerciseToSelected(ex)}
-                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-chalk-100 hover:bg-steel-800"
-                  >
-                    <span>
-                      {ex.name}
-                      {ex.is_cardio && (
-                        <span className="ml-2 font-mono text-[10px] uppercase text-tungsten-400">
-                          Cardio
-                        </span>
-                      )}
-                    </span>
-                    <span className="font-mono text-[10px] uppercase text-chalk-500">
-                      {ex.muscle_groups?.name}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={() => setPickerTab("browse")}
+                className={`flex-1 rounded-lg py-2 font-mono text-xs uppercase tracking-widest ${
+                  pickerTab === "browse"
+                    ? "bg-copper-500 text-steel-950"
+                    : "border border-steel-600 text-chalk-300"
+                }`}
+              >
+                Browse catalog
+              </button>
+              <button
+                onClick={() => setPickerTab("custom")}
+                className={`flex-1 rounded-lg py-2 font-mono text-xs uppercase tracking-widest ${
+                  pickerTab === "custom"
+                    ? "bg-tungsten-500 text-steel-950"
+                    : "border border-steel-600 text-chalk-300"
+                }`}
+              >
+                Create custom
+              </button>
+            </div>
 
-            <div className="mt-3 border-t border-steel-700 pt-3">
-              <p className="font-mono text-[10px] uppercase tracking-widest text-chalk-500">
-                Can't find it? Add a custom exercise
-              </p>
-              <div className="mt-2 flex flex-col gap-2">
+            {pickerTab === "browse" ? (
+              <>
                 <input
+                  autoFocus
+                  placeholder="Search by name…"
+                  value={pickerQuery}
+                  onChange={(e) => setPickerQuery(e.target.value)}
+                  className="mt-3 w-full rounded-lg border border-steel-500 bg-steel-800 px-3 py-2 text-sm text-chalk-100 outline-none placeholder:text-chalk-500 focus:border-copper-500"
+                />
+                <select
+                  value={pickerGroupId}
+                  onChange={(e) => setPickerGroupId(e.target.value)}
+                  className="mt-2 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
+                >
+                  <option value="">All muscle groups</option>
+                  {groups.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
+                <ul className="mt-2 flex max-h-60 flex-col gap-1 overflow-y-auto">
+                  {filteredCatalog.map((ex) => (
+                    <li key={ex.id}>
+                      <button
+                        onClick={() => addExerciseToSelected(ex)}
+                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-chalk-100 hover:bg-steel-800"
+                      >
+                        <span>
+                          {ex.name}
+                          {ex.is_cardio && (
+                            <span className="ml-2 font-mono text-[10px] uppercase text-tungsten-400">
+                              Cardio
+                            </span>
+                          )}
+                        </span>
+                        <span className="font-mono text-[10px] uppercase text-chalk-500">
+                          {ex.muscle_groups?.name}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <div className="mt-3 flex flex-col gap-2">
+                <input
+                  autoFocus
                   placeholder="Exercise name"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
@@ -398,7 +427,7 @@ export default function WorkoutBuilder({
                   Add and use
                 </button>
               </div>
-            </div>
+            )}
           </div>
         )}
 

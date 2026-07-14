@@ -73,6 +73,9 @@ export default function ActiveWorkoutPage() {
   const [pickerMode, setPickerMode] = useState<"add" | "switch" | "superset">("add");
   const [catalog, setCatalog] = useState<(Exercise & { muscle_groups: { name: string } | null })[]>([]);
   const [pickerQuery, setPickerQuery] = useState("");
+  // Which half of the picker is showing — browsing always wins by default
+  // since it's the far more common action.
+  const [pickerTab, setPickerTab] = useState<"browse" | "custom">("browse");
 
   // The template this session was launched from (if any) — lets "+ Exercise"
   // and the tab ✕ optionally resync the saved template, not just this
@@ -578,6 +581,7 @@ export default function ActiveWorkoutPage() {
   async function openPicker(mode: "add" | "switch" | "superset" = "add") {
     setPickerMode(mode);
     setShowPicker(true);
+    setPickerTab("browse");
     const supabase = createClient();
     if (catalog.length === 0) {
       const { data } = await supabase
@@ -1041,68 +1045,28 @@ export default function ActiveWorkoutPage() {
             </button>
           </div>
 
-          {plannedExercises.length > 1 && (
-            <div className="mt-2">
-              <p className="font-mono text-[10px] uppercase tracking-widest text-chalk-500">
-                Today's workout
-              </p>
-              <div className="mt-1 flex flex-wrap gap-2">
-                {plannedExercises.map((ex, i) => {
-                  if (i === activeIndex) return null;
-                  if (pickerMode === "superset" && supersetGroups.some((g) => g.exerciseIds.includes(ex.id))) {
-                    return null;
-                  }
-                  return (
-                    <button
-                      key={ex.id}
-                      onClick={() => {
-                        if (pickerMode === "superset") {
-                          if (activeExercise) createSupersetGroup([activeExercise.id, ex.id]);
-                          setShowPicker(false);
-                          setPickerMode("add");
-                          return;
-                        }
-                        goToExercise(i);
-                        setShowPicker(false);
-                      }}
-                      className="rounded-full border border-steel-600 px-3 py-1.5 text-xs text-chalk-300"
-                    >
-                      {ex.name}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          <p className="mt-3 font-mono text-[10px] uppercase tracking-widest text-chalk-500">
-            {pickerMode === "superset" ? "Or pick from the full catalog" : "Or add from the full catalog"}
-          </p>
-          <input
-            autoFocus
-            placeholder="Search all exercises…"
-            value={pickerQuery}
-            onChange={(e) => setPickerQuery(e.target.value)}
-            className="mt-2 w-full rounded-lg border border-steel-500 bg-steel-800 px-3 py-2 text-sm text-chalk-100 outline-none placeholder:text-chalk-500 focus:border-copper-500"
-          />
-          <ul className="mt-2 flex max-h-60 flex-col gap-1 overflow-y-auto">
-            {filteredCatalog.map((ex) => (
-              <li key={ex.id}>
-                <button
-                  onClick={() => addExerciseToSession(ex)}
-                  className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-chalk-100 hover:bg-steel-800"
-                >
-                  <span>{ex.name}</span>
-                  <span className="font-mono text-[10px] uppercase text-chalk-500">
-                    {ex.muscle_groups?.name}
-                  </span>
-                </button>
-              </li>
-            ))}
-            {catalog.length === 0 && (
-              <p className="px-3 py-2 text-sm text-chalk-500">Loading…</p>
-            )}
-          </ul>
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={() => setPickerTab("browse")}
+              className={`flex-1 rounded-lg py-2 font-mono text-xs uppercase tracking-widest ${
+                pickerTab === "browse"
+                  ? "bg-copper-500 text-steel-950"
+                  : "border border-steel-600 text-chalk-300"
+              }`}
+            >
+              Browse catalog
+            </button>
+            <button
+              onClick={() => setPickerTab("custom")}
+              className={`flex-1 rounded-lg py-2 font-mono text-xs uppercase tracking-widest ${
+                pickerTab === "custom"
+                  ? "bg-tungsten-500 text-steel-950"
+                  : "border border-steel-600 text-chalk-300"
+              }`}
+            >
+              Create custom
+            </button>
+          </div>
 
           {pickerMode === "add" && template && (
             <label className="mt-3 flex items-center gap-2 text-xs text-chalk-300">
@@ -1115,12 +1079,75 @@ export default function ActiveWorkoutPage() {
             </label>
           )}
 
-          <div className="mt-3 border-t border-steel-700 pt-3">
-            <p className="font-mono text-[10px] uppercase tracking-widest text-chalk-500">
-              Can't find it? Add a custom exercise
-            </p>
-            <div className="mt-2 flex flex-col gap-2">
+          {pickerTab === "browse" ? (
+            <>
+              {plannedExercises.length > 1 && (
+                <div className="mt-3">
+                  <p className="font-mono text-[10px] uppercase tracking-widest text-chalk-500">
+                    Today's workout
+                  </p>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    {plannedExercises.map((ex, i) => {
+                      if (i === activeIndex) return null;
+                      if (
+                        pickerMode === "superset" &&
+                        supersetGroups.some((g) => g.exerciseIds.includes(ex.id))
+                      ) {
+                        return null;
+                      }
+                      return (
+                        <button
+                          key={ex.id}
+                          onClick={() => {
+                            if (pickerMode === "superset") {
+                              if (activeExercise) createSupersetGroup([activeExercise.id, ex.id]);
+                              setShowPicker(false);
+                              setPickerMode("add");
+                              return;
+                            }
+                            goToExercise(i);
+                            setShowPicker(false);
+                          }}
+                          className="rounded-full border border-steel-600 px-3 py-1.5 text-xs text-chalk-300"
+                        >
+                          {ex.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <input
+                autoFocus
+                placeholder="Search all exercises…"
+                value={pickerQuery}
+                onChange={(e) => setPickerQuery(e.target.value)}
+                className="mt-3 w-full rounded-lg border border-steel-500 bg-steel-800 px-3 py-2 text-sm text-chalk-100 outline-none placeholder:text-chalk-500 focus:border-copper-500"
+              />
+              <ul className="mt-2 flex max-h-60 flex-col gap-1 overflow-y-auto">
+                {filteredCatalog.map((ex) => (
+                  <li key={ex.id}>
+                    <button
+                      onClick={() => addExerciseToSession(ex)}
+                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-chalk-100 hover:bg-steel-800"
+                    >
+                      <span>{ex.name}</span>
+                      <span className="font-mono text-[10px] uppercase text-chalk-500">
+                        {ex.muscle_groups?.name}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+                {catalog.length === 0 && (
+                  <p className="px-3 py-2 text-sm text-chalk-500">Loading…</p>
+                )}
+              </ul>
+            </>
+          ) : (
+            <div className="mt-3 flex flex-col gap-2">
+              <input
+                autoFocus
                 placeholder="Exercise name"
                 value={newExerciseName}
                 onChange={(e) => setNewExerciseName(e.target.value)}
@@ -1159,7 +1186,7 @@ export default function ActiveWorkoutPage() {
                 {creatingExercise ? "Adding…" : "Add and use"}
               </button>
             </div>
-          </div>
+          )}
         </div>
       )}
 
