@@ -78,6 +78,16 @@ export default function WorkoutBuilder({
     })();
   }, []);
 
+  function moveExercise(index: number, direction: -1 | 1) {
+    const target = index + direction;
+    setSelected((prev) => {
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  }
+
   function removeExercise(exerciseId: string) {
     setSelected((prev) => prev.filter((e) => e.id !== exerciseId));
     setPendingGroups((prev) =>
@@ -219,7 +229,7 @@ export default function WorkoutBuilder({
         )}
 
         <ul className="mt-2 flex flex-col gap-2">
-          {selected.map((ex) => {
+          {selected.map((ex, index) => {
             const groupIndex = pendingGroups.findIndex((g) => g.includes(ex.id));
             const selectedForGroup = groupingSelection.includes(ex.id);
 
@@ -251,6 +261,26 @@ export default function WorkoutBuilder({
 
             return (
               <li key={ex.id} className="flex items-center gap-2">
+                {!groupingMode && (
+                  <div className="flex shrink-0 flex-col gap-0.5">
+                    <button
+                      onClick={() => moveExercise(index, -1)}
+                      disabled={index === 0}
+                      aria-label={`Move ${ex.name} up`}
+                      className="rounded-t-lg border border-steel-600 px-1.5 py-1 text-xs leading-none text-chalk-300 disabled:opacity-30"
+                    >
+                      ▲
+                    </button>
+                    <button
+                      onClick={() => moveExercise(index, 1)}
+                      disabled={index === selected.length - 1}
+                      aria-label={`Move ${ex.name} down`}
+                      className="rounded-b-lg border border-t-0 border-steel-600 px-1.5 py-1 text-xs leading-none text-chalk-300 disabled:opacity-30"
+                    >
+                      ▼
+                    </button>
+                  </div>
+                )}
                 <button
                   disabled={!groupingMode}
                   onClick={() => toggleGroupingSelection(ex.id)}
