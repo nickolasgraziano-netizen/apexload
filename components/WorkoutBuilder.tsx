@@ -52,6 +52,7 @@ export default function WorkoutBuilder({
   const [showPicker, setShowPicker] = useState(false);
   const [pickerQuery, setPickerQuery] = useState("");
   const [pickerGroupId, setPickerGroupId] = useState("");
+  const [showCustomExerciseForm, setShowCustomExerciseForm] = useState(false);
   const [newName, setNewName] = useState("");
   const [newGroupId, setNewGroupId] = useState("");
   const [newIsCardio, setNewIsCardio] = useState(false);
@@ -139,6 +140,7 @@ export default function WorkoutBuilder({
     setNewName("");
     setNewIsCardio(false);
     setNewIsUnilateral(false);
+    setShowCustomExerciseForm(false);
   }
 
   function toggleGroupingSelection(exerciseId: string) {
@@ -297,7 +299,10 @@ export default function WorkoutBuilder({
 
         {!groupingMode && (
           <button
-            onClick={() => setShowPicker(true)}
+            onClick={() => {
+              setShowPicker(true);
+              setShowCustomExerciseForm(false);
+            }}
             className="mt-2 w-full rounded-xl border border-dashed border-steel-600 py-3 text-sm text-chalk-300"
           >
             + Add exercise
@@ -357,47 +362,57 @@ export default function WorkoutBuilder({
             </ul>
 
             <div className="mt-3 border-t border-steel-700 pt-3">
-              <p className="font-mono text-[10px] uppercase tracking-widest text-chalk-500">
-                Can't find it? Add a custom exercise
-              </p>
-              <div className="mt-2 flex flex-col gap-2">
-                <input
-                  placeholder="Exercise name"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
-                />
-                <MuscleGroupSelect
-                  groups={groups}
-                  value={newGroupId}
-                  onChange={setNewGroupId}
-                  onGroupCreated={(g) => setGroups((prev) => [...prev, g])}
-                  userId={userId}
-                  className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
-                />
-                <label className="flex items-center gap-2 text-sm text-chalk-300">
+              <button
+                onClick={() => setShowCustomExerciseForm((v) => !v)}
+                className={`w-full rounded-lg px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest ${
+                  showCustomExerciseForm
+                    ? "bg-tungsten-500 text-steel-950"
+                    : "border border-dashed border-steel-600 text-chalk-300"
+                }`}
+              >
+                {showCustomExerciseForm ? "Cancel" : "Can't find it? + Add a custom exercise"}
+              </button>
+              {showCustomExerciseForm && (
+                <div className="mt-2 flex flex-col gap-2">
                   <input
-                    type="checkbox"
-                    checked={newIsUnilateral}
-                    onChange={(e) => setNewIsUnilateral(e.target.checked)}
+                    autoFocus
+                    placeholder="Exercise name"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
                   />
-                  Unilateral (train each side separately)
-                </label>
-                <label className="flex items-center gap-2 text-sm text-chalk-300">
-                  <input
-                    type="checkbox"
-                    checked={newIsCardio}
-                    onChange={(e) => setNewIsCardio(e.target.checked)}
+                  <MuscleGroupSelect
+                    groups={groups}
+                    value={newGroupId}
+                    onChange={setNewGroupId}
+                    onGroupCreated={(g) => setGroups((prev) => [...prev, g])}
+                    userId={userId}
+                    className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
                   />
-                  Cardio (logged by duration, not sets)
-                </label>
-                <button
-                  onClick={addCustomExercise}
-                  className="rounded-lg bg-copper-500 py-2 text-sm font-semibold text-steel-950"
-                >
-                  Add and use
-                </button>
-              </div>
+                  <label className="flex items-center gap-2 text-sm text-chalk-300">
+                    <input
+                      type="checkbox"
+                      checked={newIsUnilateral}
+                      onChange={(e) => setNewIsUnilateral(e.target.checked)}
+                    />
+                    Unilateral (train each side separately)
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-chalk-300">
+                    <input
+                      type="checkbox"
+                      checked={newIsCardio}
+                      onChange={(e) => setNewIsCardio(e.target.checked)}
+                    />
+                    Cardio (logged by duration, not sets)
+                  </label>
+                  <button
+                    onClick={addCustomExercise}
+                    className="rounded-lg bg-copper-500 py-2 text-sm font-semibold text-steel-950"
+                  >
+                    Add and use
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}

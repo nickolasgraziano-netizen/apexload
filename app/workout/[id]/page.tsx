@@ -82,7 +82,9 @@ export default function ActiveWorkoutPage() {
   );
   const [persistToTemplate, setPersistToTemplate] = useState(false);
 
-  // Inline "add a custom exercise" sub-form inside the picker.
+  // Inline "add a custom exercise" sub-form inside the picker — collapsed by
+  // default so it doesn't crowd out the (far more common) catalog search.
+  const [showCustomExerciseForm, setShowCustomExerciseForm] = useState(false);
   const [groups, setGroups] = useState<MuscleGroup[]>([]);
   const [newExerciseName, setNewExerciseName] = useState("");
   const [newExerciseGroupId, setNewExerciseGroupId] = useState("");
@@ -578,6 +580,7 @@ export default function ActiveWorkoutPage() {
   async function openPicker(mode: "add" | "switch" | "superset" = "add") {
     setPickerMode(mode);
     setShowPicker(true);
+    setShowCustomExerciseForm(false);
     const supabase = createClient();
     if (catalog.length === 0) {
       const { data } = await supabase
@@ -761,6 +764,7 @@ export default function ActiveWorkoutPage() {
     setNewExerciseName("");
     setNewExerciseIsUnilateral(false);
     setNewExerciseIsCardio(false);
+    setShowCustomExerciseForm(false);
     addExerciseToSession(newExercise as Exercise);
   }
 
@@ -1116,49 +1120,59 @@ export default function ActiveWorkoutPage() {
           )}
 
           <div className="mt-3 border-t border-steel-700 pt-3">
-            <p className="font-mono text-[10px] uppercase tracking-widest text-chalk-500">
-              Can't find it? Add a custom exercise
-            </p>
-            <div className="mt-2 flex flex-col gap-2">
-              <input
-                placeholder="Exercise name"
-                value={newExerciseName}
-                onChange={(e) => setNewExerciseName(e.target.value)}
-                className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
-              />
-              <MuscleGroupSelect
-                groups={groups}
-                value={newExerciseGroupId}
-                onChange={setNewExerciseGroupId}
-                onGroupCreated={(g) => setGroups((prev) => [...prev, g])}
-                userId={userId}
-                className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
-              />
-              <label className="flex items-center gap-2 text-sm text-chalk-300">
+            <button
+              onClick={() => setShowCustomExerciseForm((v) => !v)}
+              className={`w-full rounded-lg px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest ${
+                showCustomExerciseForm
+                  ? "bg-tungsten-500 text-steel-950"
+                  : "border border-dashed border-steel-600 text-chalk-300"
+              }`}
+            >
+              {showCustomExerciseForm ? "Cancel" : "Can't find it? + Add a custom exercise"}
+            </button>
+            {showCustomExerciseForm && (
+              <div className="mt-2 flex flex-col gap-2">
                 <input
-                  type="checkbox"
-                  checked={newExerciseIsUnilateral}
-                  onChange={(e) => setNewExerciseIsUnilateral(e.target.checked)}
+                  autoFocus
+                  placeholder="Exercise name"
+                  value={newExerciseName}
+                  onChange={(e) => setNewExerciseName(e.target.value)}
+                  className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
                 />
-                Unilateral (train each side separately)
-              </label>
-              <label className="flex items-center gap-2 text-sm text-chalk-300">
-                <input
-                  type="checkbox"
-                  checked={newExerciseIsCardio}
-                  onChange={(e) => setNewExerciseIsCardio(e.target.checked)}
+                <MuscleGroupSelect
+                  groups={groups}
+                  value={newExerciseGroupId}
+                  onChange={setNewExerciseGroupId}
+                  onGroupCreated={(g) => setGroups((prev) => [...prev, g])}
+                  userId={userId}
+                  className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
                 />
-                Cardio (logged by duration, not sets)
-              </label>
-              {newExerciseError && <p className="text-xs text-copper-400">{newExerciseError}</p>}
-              <button
-                onClick={addCustomExerciseAndUse}
-                disabled={creatingExercise || !newExerciseName.trim() || !newExerciseGroupId}
-                className="rounded-lg bg-copper-500 py-2 text-sm font-semibold text-steel-950 disabled:opacity-50"
-              >
-                {creatingExercise ? "Adding…" : "Add and use"}
-              </button>
-            </div>
+                <label className="flex items-center gap-2 text-sm text-chalk-300">
+                  <input
+                    type="checkbox"
+                    checked={newExerciseIsUnilateral}
+                    onChange={(e) => setNewExerciseIsUnilateral(e.target.checked)}
+                  />
+                  Unilateral (train each side separately)
+                </label>
+                <label className="flex items-center gap-2 text-sm text-chalk-300">
+                  <input
+                    type="checkbox"
+                    checked={newExerciseIsCardio}
+                    onChange={(e) => setNewExerciseIsCardio(e.target.checked)}
+                  />
+                  Cardio (logged by duration, not sets)
+                </label>
+                {newExerciseError && <p className="text-xs text-copper-400">{newExerciseError}</p>}
+                <button
+                  onClick={addCustomExerciseAndUse}
+                  disabled={creatingExercise || !newExerciseName.trim() || !newExerciseGroupId}
+                  className="rounded-lg bg-copper-500 py-2 text-sm font-semibold text-steel-950 disabled:opacity-50"
+                >
+                  {creatingExercise ? "Adding…" : "Add and use"}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
