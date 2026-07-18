@@ -12,7 +12,13 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { WeeklyMuscleVolume, DifficultyBreakdown, VariantSplit, WeeklySessionCount } from "@/lib/metrics";
+import type {
+  WeeklyMuscleVolume,
+  DifficultyBreakdown,
+  VariantSplit,
+  WeeklySessionCount,
+  WeeklyCalories,
+} from "@/lib/metrics";
 
 const AXIS_COLOR = "rgb(var(--color-steel-500))";
 const GRID_COLOR = "rgb(var(--color-steel-700))";
@@ -136,6 +142,28 @@ export function VariantChart({ data }: { data: VariantSplit[] }) {
             <Cell key={d.variant} fill={VARIANT_COLORS[d.variant]} />
           ))}
         </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function CaloriesChart({ data }: { data: WeeklyCalories[] }) {
+  const rows = data.map((d) => ({ ...d, label: shortWeekLabel(d.weekStart) }));
+  return (
+    <ResponsiveContainer width="100%" height={140}>
+      <BarChart data={rows}>
+        <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
+        <XAxis dataKey="label" stroke={AXIS_COLOR} fontSize={11} tickLine={false} axisLine={false} />
+        <YAxis
+          stroke={AXIS_COLOR}
+          fontSize={11}
+          tickLine={false}
+          axisLine={false}
+          width={32}
+          allowDecimals={false}
+        />
+        <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
+        <Bar dataKey="calories" fill="rgb(var(--color-tungsten-500))" radius={[4, 4, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );

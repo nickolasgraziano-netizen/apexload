@@ -5,7 +5,9 @@ import {
   computeMuscleGroupFreshness,
   computeSessionsPerWeek,
   computeSessionSummary,
+  computeTotalCalories,
   computeVariantSplit,
+  computeWeeklyCalories,
   computeWeeklyVolume,
   isoWeekStart,
 } from "@/lib/metrics";
@@ -119,6 +121,35 @@ describe("computeSessionsPerWeek", () => {
       { weekStart: "2026-06-01", count: 2 },
       { weekStart: "2026-06-08", count: 1 },
     ]);
+  });
+});
+
+describe("computeWeeklyCalories", () => {
+  it("sums calories per ISO week, skipping sets with no calories logged", () => {
+    const result = computeWeeklyCalories([
+      { calories: 200, logged_at: "2026-06-01T10:00:00Z" },
+      { calories: 150, logged_at: "2026-06-03T10:00:00Z" },
+      { calories: null, logged_at: "2026-06-03T11:00:00Z" },
+      { calories: 300, logged_at: "2026-06-08T10:00:00Z" },
+    ]);
+    expect(result).toEqual([
+      { weekStart: "2026-06-01", calories: 350 },
+      { weekStart: "2026-06-08", calories: 300 },
+    ]);
+  });
+
+  it("returns an empty array when no sets have calories", () => {
+    expect(computeWeeklyCalories([{ calories: null, logged_at: "2026-06-01T10:00:00Z" }])).toEqual([]);
+  });
+});
+
+describe("computeTotalCalories", () => {
+  it("sums calories across all sets, treating missing values as zero", () => {
+    expect(computeTotalCalories([{ calories: 200 }, { calories: null }, { calories: 150 }])).toBe(350);
+  });
+
+  it("returns 0 for an empty list", () => {
+    expect(computeTotalCalories([])).toBe(0);
   });
 });
 

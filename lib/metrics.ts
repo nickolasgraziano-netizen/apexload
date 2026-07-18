@@ -133,6 +133,31 @@ export function computeSessionsPerWeek(
     .sort((a, b) => a.weekStart.localeCompare(b.weekStart));
 }
 
+export interface WeeklyCalories {
+  weekStart: string;
+  calories: number;
+}
+
+/** Total calories burned (cardio sets only) per ISO week. */
+export function computeWeeklyCalories(
+  sets: { calories: number | null; logged_at: string }[]
+): WeeklyCalories[] {
+  const totals = new Map<string, number>();
+  for (const s of sets) {
+    if (s.calories == null) continue;
+    const weekStart = isoWeekStart(s.logged_at);
+    totals.set(weekStart, (totals.get(weekStart) ?? 0) + s.calories);
+  }
+  return [...totals.entries()]
+    .map(([weekStart, calories]) => ({ weekStart, calories }))
+    .sort((a, b) => a.weekStart.localeCompare(b.weekStart));
+}
+
+/** Total calories burned (cardio sets only) across all logged history. */
+export function computeTotalCalories(sets: { calories: number | null }[]): number {
+  return sets.reduce((sum, s) => sum + (s.calories ?? 0), 0);
+}
+
 /** Whole minutes between two ISO timestamps, floored at 0. */
 export function computeDurationMinutes(startedAt: string, endedAt: string): number {
   return Math.max(0, Math.round((new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 60000));
