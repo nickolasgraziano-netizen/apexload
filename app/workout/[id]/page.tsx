@@ -633,6 +633,15 @@ export default function ActiveWorkoutPage() {
     setSupersetGroups((prev) => [...prev, { id: group.id, exerciseIds }]);
   }
 
+  // Ungroups a superset for this session only — the exercises stay in the
+  // plan and log independently from here on. Never touches a saved template.
+  async function removeSupersetGroup(groupId: string) {
+    const supabase = createClient();
+    await supabase.from("superset_group_exercises").delete().eq("group_id", groupId);
+    await supabase.from("superset_groups").delete().eq("id", groupId);
+    setSupersetGroups((prev) => prev.filter((g) => g.id !== groupId));
+  }
+
   function addExerciseToSession(ex: Exercise) {
     // Picking an exercise to superset with never adds/replaces a tab on its
     // own — it just pairs the two exercises (adding the picked one to the
@@ -1213,6 +1222,22 @@ export default function ActiveWorkoutPage() {
             </button>
           </div>
 
+          {activeGroup && (
+            <div className="mt-2 flex items-center justify-between rounded-lg border border-dashed border-tungsten-500 bg-tungsten-600/10 px-3 py-2">
+              <p className="font-mono text-xs text-tungsten-400">⚡ Part of a superset today</p>
+              <button
+                onClick={() => {
+                  if (confirm("Remove this superset for the rest of today's workout? These exercises will log independently.")) {
+                    removeSupersetGroup(activeGroup.id);
+                  }
+                }}
+                className="font-mono text-xs text-copper-400 underline"
+              >
+                Remove
+              </button>
+            </div>
+          )}
+
           {activeExercise.is_cardio ? (
             <div className="mt-4 rounded-xl border border-steel-700 bg-steel-900 p-4">
               {cardioEditing ? (
@@ -1312,6 +1337,9 @@ export default function ActiveWorkoutPage() {
                     {s.actual_reps}×{s.weight}
                     {s.training_variant === "tut" && (
                       <span className="ml-1 text-tungsten-400">TUT</span>
+                    )}
+                    {s.difficulty && (
+                      <span className="ml-1 capitalize text-chalk-500">· {s.difficulty}</span>
                     )}
                   </span>
                 ))}
