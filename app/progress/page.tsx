@@ -4,12 +4,15 @@ import {
   computeDifficultyBreakdown,
   computeMuscleGroupFreshness,
   computeSessionsPerWeek,
+  computeTotalCalories,
   computeVariantSplit,
+  computeWeeklyCalories,
   computeWeeklyVolume,
   isoWeekStart,
 } from "@/lib/metrics";
 import { buildMotivationalMessage, findLatestPR } from "@/lib/motivation";
 import {
+  CaloriesChart,
   DifficultyChart,
   SessionsPerWeekChart,
   VariantChart,
@@ -39,7 +42,7 @@ export default async function ProgressPage() {
   const { data: setRows } = await supabase
     .from("sets")
     .select(
-      "weight, actual_reps, difficulty, training_variant, logged_at, exercise_id, exercises ( name, muscle_group_id )"
+      "weight, actual_reps, difficulty, training_variant, logged_at, calories, exercise_id, exercises ( name, muscle_group_id )"
     );
   const sets = (setRows ?? []) as any[];
 
@@ -63,6 +66,8 @@ export default async function ProgressPage() {
     muscleGroups.map((g) => g.id)
   );
   const sessionsPerWeek = computeSessionsPerWeek(sessions);
+  const weeklyCalories = computeWeeklyCalories(sets);
+  const totalCalories = computeTotalCalories(sets);
 
   const staleFirst = [...freshness].sort((a, b) => {
     if (a.daysSinceLastTrained == null) return -1;
@@ -82,6 +87,7 @@ export default async function ProgressPage() {
   );
   const currentWeek = isoWeekStart(new Date());
   const sessionsThisWeek = sessionsPerWeek.find((w) => w.weekStart === currentWeek)?.count ?? 0;
+  const caloriesThisWeek = weeklyCalories.find((w) => w.weekStart === currentWeek)?.calories ?? 0;
   const highlightMessage = buildMotivationalMessage({
     latestPR,
     sessionsThisWeek,
@@ -161,6 +167,36 @@ export default async function ProgressPage() {
               <SessionsPerWeekChart data={sessionsPerWeek} />
             </div>
           </section>
+
+          {weeklyCalories.length > 0 && (
+            <section className="mt-6 rounded-2xl border border-steel-700 bg-steel-900 p-4">
+              <h2 className="font-mono text-xs uppercase tracking-widest text-chalk-500">Cardio</h2>
+              <div className="mt-2 grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-steel-700 bg-steel-800 p-3 text-center">
+                  <p className="font-display text-2xl font-extrabold text-chalk-100">
+                    {caloriesThisWeek.toLocaleString()}
+                  </p>
+                  <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-chalk-500">
+                    This week (cal)
+                  </p>
+                </div>
+                <div className="rounded-xl border border-steel-700 bg-steel-800 p-3 text-center">
+                  <p className="font-display text-2xl font-extrabold text-chalk-100">
+                    {totalCalories.toLocaleString()}
+                  </p>
+                  <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-chalk-500">
+                    All-time (cal)
+                  </p>
+                </div>
+              </div>
+              <h3 className="mt-4 font-mono text-[10px] uppercase tracking-widest text-chalk-500">
+                Weekly calories burned
+              </h3>
+              <div className="mt-2">
+                <CaloriesChart data={weeklyCalories} />
+              </div>
+            </section>
+          )}
 
           <section className="mt-6 rounded-2xl border border-steel-700 bg-steel-900 p-4">
             <h2 className="font-mono text-xs uppercase tracking-widest text-chalk-500">
