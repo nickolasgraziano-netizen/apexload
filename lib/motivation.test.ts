@@ -3,6 +3,7 @@ import {
   buildMotivationalMessage,
   findLatestPR,
   firstNameFrom,
+  GENERIC_MESSAGES,
   pickGenericMessage,
 } from "@/lib/motivation";
 
@@ -22,12 +23,15 @@ describe("firstNameFrom", () => {
 });
 
 describe("pickGenericMessage", () => {
-  it("is deterministic for the same seed", () => {
-    expect(pickGenericMessage(3)).toBe(pickGenericMessage(3));
+  it("always returns a quote from the pool", () => {
+    for (let i = 0; i < 50; i++) {
+      expect(GENERIC_MESSAGES).toContain(pickGenericMessage());
+    }
   });
 
-  it("handles negative seeds without throwing", () => {
-    expect(() => pickGenericMessage(-1)).not.toThrow();
+  it("draws from more than one quote across repeated calls", () => {
+    const seen = new Set(Array.from({ length: 50 }, () => pickGenericMessage()));
+    expect(seen.size).toBeGreaterThan(1);
   });
 });
 
@@ -78,7 +82,7 @@ describe("buildMotivationalMessage", () => {
   });
 
   it("falls back to a generic message when there's no PR or session data", () => {
-    const result = buildMotivationalMessage({ seed: 0 });
-    expect(result).toBe(pickGenericMessage(0));
+    const result = buildMotivationalMessage({});
+    expect(GENERIC_MESSAGES).toContain(result);
   });
 });

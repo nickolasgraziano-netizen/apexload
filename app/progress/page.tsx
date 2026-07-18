@@ -86,7 +86,6 @@ export default async function ProgressPage() {
     latestPR,
     sessionsThisWeek,
     targetPerWeek: muscleGroups.length || undefined,
-    seed: sessions.length,
   });
 
   return (
