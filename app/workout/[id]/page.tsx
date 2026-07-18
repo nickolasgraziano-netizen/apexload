@@ -493,7 +493,6 @@ export default function ActiveWorkoutPage() {
     setMotivationMessage(
       buildMotivationalMessage({
         latestPR: isPR ? { exerciseName: activeExercise.name, weight } : null,
-        seed: sessionSets.length + reps,
       })
     );
 

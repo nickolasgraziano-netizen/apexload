@@ -97,7 +97,6 @@ export default async function DashboardPage() {
     latestPR,
     sessionsThisWeek,
     targetPerWeek: muscleGroups.length || undefined,
-    seed: (allSessionsForWeek ?? []).length,
   });
 
   return (
