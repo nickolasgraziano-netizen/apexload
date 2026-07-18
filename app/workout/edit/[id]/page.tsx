@@ -131,7 +131,7 @@ export default function EditWorkoutPage() {
             ...prev,
             {
               exercise: ex,
-              sets: ex.is_cardio ? [] : [{ ...DEFAULT_SET, side: ex.is_unilateral ? "right" : null }],
+              sets: ex.is_cardio ? [] : [{ ...DEFAULT_SET, side: ex.is_unilateral ? "left" : null }],
               cardioDurationMinutes: "",
               cardioNotes: "",
               cardioCalories: "",

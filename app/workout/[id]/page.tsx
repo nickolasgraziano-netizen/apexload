@@ -37,7 +37,7 @@ const DEFAULT_DRAFT: SetDraft = {
   weight: 0,
   difficulty: "moderate",
   variant: "standard",
-  side: "right",
+  side: "left",
 };
 const SUPERSET_SHORT_REST = 30;
 const SUPERSET_LONG_REST = 60;
@@ -1373,16 +1373,6 @@ export default function ActiveWorkoutPage() {
           {activeExercise.is_unilateral && (
             <div className="mt-2 flex gap-2">
               <button
-                onClick={() => updateDraft({ side: "right" })}
-                className={`flex-1 rounded-xl py-2 text-sm font-semibold ${
-                  side === "right"
-                    ? "bg-copper-500 text-steel-950"
-                    : "border border-steel-600 text-chalk-300"
-                }`}
-              >
-                Right
-              </button>
-              <button
                 onClick={() => updateDraft({ side: "left" })}
                 className={`flex-1 rounded-xl py-2 text-sm font-semibold ${
                   side === "left"
@@ -1391,6 +1381,16 @@ export default function ActiveWorkoutPage() {
                 }`}
               >
                 Left
+              </button>
+              <button
+                onClick={() => updateDraft({ side: "right" })}
+                className={`flex-1 rounded-xl py-2 text-sm font-semibold ${
+                  side === "right"
+                    ? "bg-copper-500 text-steel-950"
+                    : "border border-steel-600 text-chalk-300"
+                }`}
+              >
+                Right
               </button>
             </div>
           )}
