@@ -11,13 +11,15 @@ export default function HomeBar() {
   if (pathname === "/" || pathname === "/login") return null;
 
   return (
-    <div className="sticky top-0 z-30 border-b border-steel-800 bg-steel-950/90 px-5 py-2 backdrop-blur-md">
-      <Link
-        href="/"
-        className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-widest text-copper-400"
-      >
-        ← Home
-      </Link>
+    <div className="sticky top-0 z-30 border-b border-steel-800 bg-steel-950/90 backdrop-blur-md">
+      <div className="mx-auto max-w-md px-5 py-2">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-widest text-copper-400"
+        >
+          ← Home
+        </Link>
+      </div>
     </div>
   );
 }
