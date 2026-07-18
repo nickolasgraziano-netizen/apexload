@@ -59,7 +59,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="bg-steel-950 text-chalk-100 font-body antialiased">
         <HomeBar />
-        {children}
+        <div className="mx-auto max-w-md">{children}</div>
         <ThemeSwitcher />
       </body>
     </html>
