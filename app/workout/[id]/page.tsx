@@ -256,8 +256,14 @@ export default function ActiveWorkoutPage() {
   }, [sessionId]);
 
   // Load history + this-session sets whenever the active exercise changes.
+  // Guarded against out-of-order responses: rapidly hopping between
+  // exercises (e.g. cycling a superset) can fire overlapping requests, and
+  // without this a slow response for an exercise you've since switched away
+  // from could land after — and overwrite — the fresher one for whichever
+  // exercise you're actually looking at now.
   useEffect(() => {
     if (!activeExercise || !userId) return;
+    let cancelled = false;
     const supabase = createClient();
     (async () => {
       const { data: hist } = await supabase
@@ -267,6 +273,7 @@ export default function ActiveWorkoutPage() {
         .eq("exercise_id", activeExercise.id)
         .order("logged_at", { ascending: false })
         .limit(20);
+      if (cancelled) return;
       setAllSets((hist ?? []) as LoggedSet[]);
 
       const { data: mine } = await supabase
@@ -275,8 +282,12 @@ export default function ActiveWorkoutPage() {
         .eq("session_id", sessionId)
         .eq("exercise_id", activeExercise.id)
         .order("set_number");
+      if (cancelled) return;
       setSessionSets((mine ?? []) as LoggedSet[]);
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [activeExercise, userId, sessionId]);
 
   // Most recent machine photo for this exercise, if one's been uploaded —
