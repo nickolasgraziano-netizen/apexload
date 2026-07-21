@@ -158,6 +158,31 @@ export function computeTotalCalories(sets: { calories: number | null }[]): numbe
   return sets.reduce((sum, s) => sum + (s.calories ?? 0), 0);
 }
 
+export interface WeeklyDistance {
+  weekStart: string;
+  distanceMiles: number;
+}
+
+/** Total distance covered in miles (cardio sets only) per ISO week. */
+export function computeWeeklyDistance(
+  sets: { distance_miles: number | null; logged_at: string }[]
+): WeeklyDistance[] {
+  const totals = new Map<string, number>();
+  for (const s of sets) {
+    if (s.distance_miles == null) continue;
+    const weekStart = isoWeekStart(s.logged_at);
+    totals.set(weekStart, (totals.get(weekStart) ?? 0) + s.distance_miles);
+  }
+  return [...totals.entries()]
+    .map(([weekStart, distanceMiles]) => ({ weekStart, distanceMiles }))
+    .sort((a, b) => a.weekStart.localeCompare(b.weekStart));
+}
+
+/** Total distance covered in miles (cardio sets only) across all logged history. */
+export function computeTotalDistance(sets: { distance_miles: number | null }[]): number {
+  return sets.reduce((sum, s) => sum + (s.distance_miles ?? 0), 0);
+}
+
 /** Whole minutes between two ISO timestamps, floored at 0. */
 export function computeDurationMinutes(startedAt: string, endedAt: string): number {
   return Math.max(0, Math.round((new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 60000));

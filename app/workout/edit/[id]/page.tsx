@@ -20,6 +20,7 @@ interface ExerciseEntry {
   cardioDurationMinutes: string;
   cardioNotes: string;
   cardioCalories: string;
+  cardioDistanceMiles: string;
 }
 
 const DEFAULT_SET: SetEntry = {
@@ -100,6 +101,7 @@ export default function EditWorkoutPage() {
             cardioDurationMinutes: "",
             cardioNotes: "",
             cardioCalories: "",
+            cardioDistanceMiles: "",
           };
           grouped.push(entry);
         }
@@ -108,6 +110,7 @@ export default function EditWorkoutPage() {
             s.duration_seconds != null ? String(Math.round(s.duration_seconds / 60)) : "";
           entry.cardioNotes = s.notes ?? "";
           entry.cardioCalories = s.calories != null ? String(s.calories) : "";
+          entry.cardioDistanceMiles = s.distance_miles != null ? String(s.distance_miles) : "";
           continue;
         }
         entry.sets.push({
@@ -135,6 +138,7 @@ export default function EditWorkoutPage() {
               cardioDurationMinutes: "",
               cardioNotes: "",
               cardioCalories: "",
+              cardioDistanceMiles: "",
             },
           ]
     );
@@ -144,7 +148,9 @@ export default function EditWorkoutPage() {
 
   function updateCardioEntry(
     exerciseId: string,
-    patch: Partial<Pick<ExerciseEntry, "cardioDurationMinutes" | "cardioNotes" | "cardioCalories">>
+    patch: Partial<
+      Pick<ExerciseEntry, "cardioDurationMinutes" | "cardioNotes" | "cardioCalories" | "cardioDistanceMiles">
+    >
   ) {
     setEntries((prev) =>
       prev.map((e) => (e.exercise.id === exerciseId ? { ...e, ...patch } : e))
@@ -259,6 +265,7 @@ export default function EditWorkoutPage() {
       duration_seconds: number | null;
       notes: string | null;
       calories: number | null;
+      distance_miles: number | null;
       logged_at: string;
     }[] = [];
     for (const entry of entries) {
@@ -268,6 +275,8 @@ export default function EditWorkoutPage() {
         const durationSeconds = Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes * 60) : null;
         const calories = Number(entry.cardioCalories);
         const caloriesValue = Number.isFinite(calories) && calories > 0 ? Math.round(calories) : null;
+        const distance = Number(entry.cardioDistanceMiles);
+        const distanceValue = Number.isFinite(distance) && distance > 0 ? distance : null;
         rows.push({
           session_id: sessionId,
           user_id: user.id,
@@ -282,6 +291,7 @@ export default function EditWorkoutPage() {
           duration_seconds: durationSeconds,
           notes: entry.cardioNotes.trim() || null,
           calories: caloriesValue,
+          distance_miles: distanceValue,
           logged_at: new Date(startedAt.getTime() + minuteOffset * 60 * 1000).toISOString(),
         });
         continue;
@@ -303,6 +313,7 @@ export default function EditWorkoutPage() {
           duration_seconds: null,
           notes: null,
           calories: null,
+          distance_miles: null,
           logged_at: new Date(startedAt.getTime() + minuteOffset * 60 * 1000).toISOString(),
         });
       });
@@ -390,6 +401,18 @@ export default function EditWorkoutPage() {
                     value={entry.cardioDurationMinutes}
                     onChange={(e) =>
                       updateCardioEntry(entry.exercise.id, { cardioDurationMinutes: e.target.value })
+                    }
+                    onFocus={(e) => e.target.select()}
+                    className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="font-mono text-xs text-chalk-500">Distance (miles, optional)</span>
+                  <input
+                    type="number"
+                    value={entry.cardioDistanceMiles}
+                    onChange={(e) =>
+                      updateCardioEntry(entry.exercise.id, { cardioDistanceMiles: e.target.value })
                     }
                     onFocus={(e) => e.target.select()}
                     className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"

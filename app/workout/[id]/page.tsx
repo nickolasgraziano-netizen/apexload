@@ -108,6 +108,7 @@ export default function ActiveWorkoutPage() {
   const [cardioDurationMinutes, setCardioDurationMinutes] = useState("");
   const [cardioNotes, setCardioNotes] = useState("");
   const [cardioCalories, setCardioCalories] = useState("");
+  const [cardioDistanceMiles, setCardioDistanceMiles] = useState("");
   const [cardioEditing, setCardioEditing] = useState(false);
 
   // Exercises the lifter skipped this session (e.g. machine unavailable) —
@@ -392,11 +393,13 @@ export default function ActiveWorkoutPage() {
       );
       setCardioNotes(cardioEntry.notes ?? "");
       setCardioCalories(cardioEntry.calories != null ? String(cardioEntry.calories) : "");
+      setCardioDistanceMiles(cardioEntry.distance_miles != null ? String(cardioEntry.distance_miles) : "");
       setCardioEditing(false);
     } else {
       setCardioDurationMinutes("");
       setCardioNotes("");
       setCardioCalories("");
+      setCardioDistanceMiles("");
       setCardioEditing(true);
     }
   }, [activeExercise?.id, cardioEntry?.id]);
@@ -409,16 +412,29 @@ export default function ActiveWorkoutPage() {
     const trimmedNotes = cardioNotes.trim() || null;
     const calories = Number(cardioCalories);
     const caloriesValue = Number.isFinite(calories) && calories > 0 ? Math.round(calories) : null;
+    const distance = Number(cardioDistanceMiles);
+    const distanceValue = Number.isFinite(distance) && distance > 0 ? distance : null;
 
     if (cardioEntry) {
       await supabase
         .from("sets")
-        .update({ duration_seconds: durationSeconds, notes: trimmedNotes, calories: caloriesValue })
+        .update({
+          duration_seconds: durationSeconds,
+          notes: trimmedNotes,
+          calories: caloriesValue,
+          distance_miles: distanceValue,
+        })
         .eq("id", cardioEntry.id);
       setSessionSets((prev) =>
         prev.map((s) =>
           s.id === cardioEntry.id
-            ? { ...s, duration_seconds: durationSeconds, notes: trimmedNotes, calories: caloriesValue }
+            ? {
+                ...s,
+                duration_seconds: durationSeconds,
+                notes: trimmedNotes,
+                calories: caloriesValue,
+                distance_miles: distanceValue,
+              }
             : s
         )
       );
@@ -438,6 +454,7 @@ export default function ActiveWorkoutPage() {
           duration_seconds: durationSeconds,
           notes: trimmedNotes,
           calories: caloriesValue,
+          distance_miles: distanceValue,
         })
         .select()
         .single();
@@ -1304,6 +1321,18 @@ export default function ActiveWorkoutPage() {
                   </label>
                   <label className="mt-3 flex flex-col gap-1">
                     <span className="font-mono text-xs text-chalk-500">
+                      Distance (miles, optional)
+                    </span>
+                    <input
+                      type="number"
+                      value={cardioDistanceMiles}
+                      onChange={(e) => setCardioDistanceMiles(e.target.value)}
+                      onFocus={(e) => e.target.select()}
+                      className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
+                    />
+                  </label>
+                  <label className="mt-3 flex flex-col gap-1">
+                    <span className="font-mono text-xs text-chalk-500">
                       Calories burned (optional)
                     </span>
                     <input
@@ -1346,6 +1375,7 @@ export default function ActiveWorkoutPage() {
                 <>
                   <p className="text-chalk-100">
                     {Math.round((cardioEntry?.duration_seconds ?? 0) / 60)} min
+                    {cardioEntry?.distance_miles != null && ` · ${cardioEntry.distance_miles} mi`}
                     {cardioEntry?.calories != null && ` · ${cardioEntry.calories} cal`}
                   </p>
                   {cardioEntry?.notes && (

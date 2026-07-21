@@ -36,6 +36,7 @@ interface ExerciseDetail {
     durationSeconds: number | null;
     setNotes: string | null;
     calories: number | null;
+    distanceMiles: number | null;
   }[];
 }
 
@@ -97,7 +98,7 @@ export default function HistoryPage() {
     const { data: setRows } = await supabase
       .from("sets")
       .select(
-        "actual_reps, weight, training_variant, side, duration_seconds, notes, calories, logged_at, exercises ( name )"
+        "actual_reps, weight, training_variant, side, duration_seconds, notes, calories, distance_miles, logged_at, exercises ( name )"
       )
       .eq("session_id", sessionId)
       .order("logged_at");
@@ -118,6 +119,7 @@ export default function HistoryPage() {
         durationSeconds: s.duration_seconds,
         setNotes: s.notes,
         calories: s.calories,
+        distanceMiles: s.distance_miles,
       });
     }
     setDetailsCache((prev) => ({ ...prev, [sessionId]: grouped }));
@@ -376,6 +378,7 @@ export default function HistoryPage() {
                                 className="rounded-md bg-steel-800 px-2 py-1 font-mono text-xs text-chalk-300"
                               >
                                 {Math.round(s.durationSeconds / 60)} min
+                                {s.distanceMiles != null && ` · ${s.distanceMiles} mi`}
                                 {s.calories != null && ` · ${s.calories} cal`}
                                 {s.setNotes && ` · ${s.setNotes}`}
                               </span>

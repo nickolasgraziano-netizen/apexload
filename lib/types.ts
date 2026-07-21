@@ -102,6 +102,7 @@ export interface LoggedSet {
   duration_seconds: number | null; // cardio: session length, in place of reps/weight
   notes: string | null; // cardio: intensity/style (incline, resistance, etc.)
   calories: number | null; // cardio: calories burned
+  distance_miles: number | null; // cardio: distance covered, in miles
 }
 
 // A rotating group of 2-3 exercises alternated between sets, with a short
