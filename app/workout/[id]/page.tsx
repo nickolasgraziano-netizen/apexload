@@ -640,7 +640,23 @@ export default function ActiveWorkoutPage() {
       }))
     );
 
+    // Fold in any of today's sets for these exercises that were logged
+    // before the pairing existed (e.g. "Superset with…" after finishing a
+    // set) — otherwise that earlier set never reads as part of the group.
+    await supabase
+      .from("sets")
+      .update({ superset_group_id: group.id })
+      .eq("session_id", sessionId)
+      .in("exercise_id", exerciseIds)
+      .is("superset_group_id", null);
+
     setSupersetGroups((prev) => [...prev, { id: group.id, exerciseIds }]);
+
+    if (activeExercise && exerciseIds.includes(activeExercise.id)) {
+      setSessionSets((prev) =>
+        prev.map((s) => (s.superset_group_id == null ? { ...s, superset_group_id: group.id } : s))
+      );
+    }
   }
 
   // Ungroups a superset for this session only — the exercises stay in the
@@ -658,8 +674,24 @@ export default function ActiveWorkoutPage() {
     // plan first if it's brand new to this session).
     if (pickerMode === "superset") {
       if (activeExercise && activeExercise.id !== ex.id) {
-        setPlannedExercises((prev) => (prev.some((p) => p.id === ex.id) ? prev : [...prev, ex]));
+        let targetIndex = -1;
+        setPlannedExercises((prev) => {
+          const existingIndex = prev.findIndex((p) => p.id === ex.id);
+          if (existingIndex !== -1) {
+            targetIndex = existingIndex;
+            return prev;
+          }
+          targetIndex = prev.length;
+          return [...prev, ex];
+        });
         createSupersetGroup([activeExercise.id, ex.id]);
+        // Jump straight to the exercise you just paired with, matching how
+        // "Next in superset" behaves for every cycle after this one.
+        if (targetIndex !== -1) {
+          setActiveIndex(targetIndex);
+          setFreshLog(false);
+          setJustLoggedSet(loggedExerciseIds.includes(ex.id));
+        }
       }
       setShowPicker(false);
       setPickerQuery("");
@@ -1119,7 +1151,14 @@ export default function ActiveWorkoutPage() {
                           key={ex.id}
                           onClick={() => {
                             if (pickerMode === "superset") {
-                              if (activeExercise) createSupersetGroup([activeExercise.id, ex.id]);
+                              if (activeExercise) {
+                                createSupersetGroup([activeExercise.id, ex.id]);
+                                // Jump straight to the paired exercise, same
+                                // as every later cycle via "Next in superset".
+                                setActiveIndex(i);
+                                setFreshLog(false);
+                                setJustLoggedSet(loggedExerciseIds.includes(ex.id));
+                              }
                               setShowPicker(false);
                               setPickerMode("add");
                               return;
