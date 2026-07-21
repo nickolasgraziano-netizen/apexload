@@ -6,8 +6,10 @@ import {
   computeSessionsPerWeek,
   computeSessionSummary,
   computeTotalCalories,
+  computeTotalDistance,
   computeVariantSplit,
   computeWeeklyCalories,
+  computeWeeklyDistance,
   computeWeeklyVolume,
   isoWeekStart,
 } from "@/lib/metrics";
@@ -150,6 +152,35 @@ describe("computeTotalCalories", () => {
 
   it("returns 0 for an empty list", () => {
     expect(computeTotalCalories([])).toBe(0);
+  });
+});
+
+describe("computeWeeklyDistance", () => {
+  it("sums distance per ISO week, skipping sets with no distance logged", () => {
+    const result = computeWeeklyDistance([
+      { distance_miles: 3.1, logged_at: "2026-06-01T10:00:00Z" },
+      { distance_miles: 2.4, logged_at: "2026-06-03T10:00:00Z" },
+      { distance_miles: null, logged_at: "2026-06-03T11:00:00Z" },
+      { distance_miles: 5, logged_at: "2026-06-08T10:00:00Z" },
+    ]);
+    expect(result).toEqual([
+      { weekStart: "2026-06-01", distanceMiles: 5.5 },
+      { weekStart: "2026-06-08", distanceMiles: 5 },
+    ]);
+  });
+
+  it("returns an empty array when no sets have distance", () => {
+    expect(computeWeeklyDistance([{ distance_miles: null, logged_at: "2026-06-01T10:00:00Z" }])).toEqual([]);
+  });
+});
+
+describe("computeTotalDistance", () => {
+  it("sums distance across all sets, treating missing values as zero", () => {
+    expect(computeTotalDistance([{ distance_miles: 3.1 }, { distance_miles: null }, { distance_miles: 2.4 }])).toBeCloseTo(5.5);
+  });
+
+  it("returns 0 for an empty list", () => {
+    expect(computeTotalDistance([])).toBe(0);
   });
 });
 

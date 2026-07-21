@@ -5,8 +5,10 @@ import {
   computeMuscleGroupFreshness,
   computeSessionsPerWeek,
   computeTotalCalories,
+  computeTotalDistance,
   computeVariantSplit,
   computeWeeklyCalories,
+  computeWeeklyDistance,
   computeWeeklyVolume,
   isoWeekStart,
 } from "@/lib/metrics";
@@ -14,6 +16,7 @@ import { buildMotivationalMessage, findLatestPR } from "@/lib/motivation";
 import {
   CaloriesChart,
   DifficultyChart,
+  DistanceChart,
   SessionsPerWeekChart,
   VariantChart,
   VolumeChart,
@@ -42,7 +45,7 @@ export default async function ProgressPage() {
   const { data: setRows } = await supabase
     .from("sets")
     .select(
-      "weight, actual_reps, difficulty, training_variant, logged_at, calories, exercise_id, exercises ( name, muscle_group_id )"
+      "weight, actual_reps, difficulty, training_variant, logged_at, calories, distance_miles, exercise_id, exercises ( name, muscle_group_id )"
     );
   const sets = (setRows ?? []) as any[];
 
@@ -68,6 +71,8 @@ export default async function ProgressPage() {
   const sessionsPerWeek = computeSessionsPerWeek(sessions);
   const weeklyCalories = computeWeeklyCalories(sets);
   const totalCalories = computeTotalCalories(sets);
+  const weeklyDistance = computeWeeklyDistance(sets);
+  const totalDistance = computeTotalDistance(sets);
 
   const staleFirst = [...freshness].sort((a, b) => {
     if (a.daysSinceLastTrained == null) return -1;
@@ -88,6 +93,7 @@ export default async function ProgressPage() {
   const currentWeek = isoWeekStart(new Date());
   const sessionsThisWeek = sessionsPerWeek.find((w) => w.weekStart === currentWeek)?.count ?? 0;
   const caloriesThisWeek = weeklyCalories.find((w) => w.weekStart === currentWeek)?.calories ?? 0;
+  const distanceThisWeek = weeklyDistance.find((w) => w.weekStart === currentWeek)?.distanceMiles ?? 0;
   const highlightMessage = buildMotivationalMessage({
     latestPR,
     sessionsThisWeek,
@@ -168,10 +174,26 @@ export default async function ProgressPage() {
             </div>
           </section>
 
-          {weeklyCalories.length > 0 && (
+          {(weeklyCalories.length > 0 || weeklyDistance.length > 0) && (
             <section className="mt-6 rounded-2xl border border-steel-700 bg-steel-900 p-4">
               <h2 className="font-mono text-xs uppercase tracking-widest text-chalk-500">Cardio</h2>
               <div className="mt-2 grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-steel-700 bg-steel-800 p-3 text-center">
+                  <p className="font-display text-2xl font-extrabold text-chalk-100">
+                    {distanceThisWeek.toLocaleString()}
+                  </p>
+                  <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-chalk-500">
+                    This week (mi)
+                  </p>
+                </div>
+                <div className="rounded-xl border border-steel-700 bg-steel-800 p-3 text-center">
+                  <p className="font-display text-2xl font-extrabold text-chalk-100">
+                    {totalDistance.toLocaleString()}
+                  </p>
+                  <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-chalk-500">
+                    All-time (mi)
+                  </p>
+                </div>
                 <div className="rounded-xl border border-steel-700 bg-steel-800 p-3 text-center">
                   <p className="font-display text-2xl font-extrabold text-chalk-100">
                     {caloriesThisWeek.toLocaleString()}
@@ -189,12 +211,26 @@ export default async function ProgressPage() {
                   </p>
                 </div>
               </div>
-              <h3 className="mt-4 font-mono text-[10px] uppercase tracking-widest text-chalk-500">
-                Weekly calories burned
-              </h3>
-              <div className="mt-2">
-                <CaloriesChart data={weeklyCalories} />
-              </div>
+              {weeklyDistance.length > 0 && (
+                <>
+                  <h3 className="mt-4 font-mono text-[10px] uppercase tracking-widest text-chalk-500">
+                    Weekly distance
+                  </h3>
+                  <div className="mt-2">
+                    <DistanceChart data={weeklyDistance} />
+                  </div>
+                </>
+              )}
+              {weeklyCalories.length > 0 && (
+                <>
+                  <h3 className="mt-4 font-mono text-[10px] uppercase tracking-widest text-chalk-500">
+                    Weekly calories burned
+                  </h3>
+                  <div className="mt-2">
+                    <CaloriesChart data={weeklyCalories} />
+                  </div>
+                </>
+              )}
             </section>
           )}
 
