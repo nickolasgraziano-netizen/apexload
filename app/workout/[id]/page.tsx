@@ -16,15 +16,15 @@ import type {
   TrainingVariant,
   WorkoutSession,
   SetDifficulty,
-  SetSide,
 } from "@/lib/types";
 
 interface SetDraft {
-  reps: number;
-  weight: number;
+  reps: number; // bilateral exercises use this alone; unilateral uses it as "left"
+  weight: number; // ditto — "left weight" for unilateral
+  rightReps: number; // unilateral only
+  rightWeight: number; // unilateral only
   difficulty: SetDifficulty;
   variant: TrainingVariant;
-  side: SetSide;
 }
 
 interface SupersetGroupView {
@@ -35,9 +35,10 @@ interface SupersetGroupView {
 const DEFAULT_DRAFT: SetDraft = {
   reps: 15,
   weight: 0,
+  rightReps: 15,
+  rightWeight: 0,
   difficulty: "moderate",
   variant: "standard",
-  side: "left",
 };
 const SUPERSET_SHORT_REST = 30;
 const SUPERSET_LONG_REST = 60;
@@ -118,6 +119,10 @@ export default function ActiveWorkoutPage() {
   // else in the plan is "untouched" and worth flagging before ending.
   const [loggedExerciseIds, setLoggedExerciseIds] = useState<string[]>([]);
   const [showEndPrompt, setShowEndPrompt] = useState(false);
+  // Unilateral exercises whose logged left/right counts don't match this
+  // session — a backstop for edge cases like deleting just one side's set,
+  // since normal logging now always writes both sides together.
+  const [imbalancedIds, setImbalancedIds] = useState<string[]>([]);
 
   // Supersets: 2-3 exercise tabs rotated between sets. Grouping can be
   // created here on the fly (select tabs) or arrive pre-made from workout/new.
@@ -132,7 +137,7 @@ export default function ActiveWorkoutPage() {
 
   const activeExercise = plannedExercises[activeIndex] as Exercise | undefined;
   const draft = (activeExercise && drafts[activeExercise.id]) || DEFAULT_DRAFT;
-  const { reps, weight, difficulty, variant, side } = draft;
+  const { reps, weight, rightReps, rightWeight, difficulty, variant } = draft;
   const activeGroup = activeExercise
     ? supersetGroups.find((g) => g.exerciseIds.includes(activeExercise.id))
     : undefined;
@@ -471,7 +476,10 @@ export default function ActiveWorkoutPage() {
   async function logSet() {
     if (!activeExercise || !userId) return;
     const supabase = createClient();
-    const setNumber = sessionSets.length + 1;
+    // Max of existing set_numbers rather than a raw row count — a unilateral
+    // round logs two rows (left + right) sharing one set_number, so counting
+    // rows would double-count rounds.
+    const setNumber = Math.max(0, ...sessionSets.map((s) => s.set_number)) + 1;
 
     // Superset-aware rest: short between exercises in the cycle, long once
     // you've cycled back through every exercise in the group. Otherwise a
@@ -483,26 +491,32 @@ export default function ActiveWorkoutPage() {
       rest = isLastInGroup ? SUPERSET_LONG_REST : SUPERSET_SHORT_REST;
     }
 
-    const { data: newSet } = await supabase
-      .from("sets")
-      .insert({
-        session_id: sessionId,
-        user_id: userId,
-        exercise_id: activeExercise.id,
-        training_variant: variant,
-        set_number: setNumber,
-        target_reps: 15,
-        actual_reps: reps,
-        weight,
-        difficulty,
-        superset_group_id: activeGroup?.id ?? null,
-        superset_cycle: activeGroup ? setNumber : null,
-        side: activeExercise.is_unilateral ? side : null,
-      })
-      .select()
-      .single();
+    const base = {
+      session_id: sessionId,
+      user_id: userId,
+      exercise_id: activeExercise.id,
+      training_variant: variant,
+      set_number: setNumber,
+      target_reps: 15,
+      difficulty,
+      superset_group_id: activeGroup?.id ?? null,
+      superset_cycle: activeGroup ? setNumber : null,
+    };
 
-    if (newSet) setSessionSets((prev) => [...prev, newSet as LoggedSet]);
+    // Unilateral exercises log both sides from one tap — a "set" means a
+    // round on each arm/leg, not just whichever side happened to be
+    // selected, so there's no way to end up with just one side saved.
+    const rows: (typeof base & { actual_reps: number; weight: number; side: "left" | "right" | null })[] =
+      activeExercise.is_unilateral
+        ? [
+            { ...base, actual_reps: reps, weight, side: "left" },
+            { ...base, actual_reps: rightReps, weight: rightWeight, side: "right" },
+          ]
+        : [{ ...base, actual_reps: reps, weight, side: null }];
+
+    const { data: newSets } = await supabase.from("sets").insert(rows).select();
+
+    if (newSets) setSessionSets((prev) => [...prev, ...(newSets as LoggedSet[])]);
 
     // Actually doing the exercise after all un-skips it.
     setSkippedIds((prev) => prev.filter((id) => id !== activeExercise.id));
@@ -510,17 +524,12 @@ export default function ActiveWorkoutPage() {
       prev.includes(activeExercise.id) ? prev : [...prev, activeExercise.id]
     );
 
-    // Alternate sides automatically — right then left, matching how a set
-    // of unilateral work is actually performed.
-    if (activeExercise.is_unilateral) {
-      updateDraft({ side: side === "right" ? "left" : "right" });
-    }
-
     const priorMax = Math.max(0, ...allSets.map((s) => s.weight ?? 0));
-    const isPR = weight > priorMax;
+    const loggedMax = activeExercise.is_unilateral ? Math.max(weight, rightWeight) : weight;
+    const isPR = loggedMax > priorMax;
     setMotivationMessage(
       buildMotivationalMessage({
-        latestPR: isPR ? { exerciseName: activeExercise.name, weight } : null,
+        latestPR: isPR ? { exerciseName: activeExercise.name, weight: loggedMax } : null,
       })
     );
 
@@ -562,8 +571,34 @@ export default function ActiveWorkoutPage() {
     .filter((id) => !skippedIds.includes(id) && !loggedExerciseIds.includes(id));
   const outstandingIds = [...skippedIds, ...untouchedIds];
 
-  function requestEndWorkout() {
-    if (outstandingIds.length > 0) {
+  async function findImbalancedUnilateralIds(): Promise<string[]> {
+    const unilateralIds = plannedExercises.filter((e) => e.is_unilateral).map((e) => e.id);
+    if (unilateralIds.length === 0) return [];
+
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("sets")
+      .select("exercise_id, side")
+      .eq("session_id", sessionId)
+      .in("exercise_id", unilateralIds);
+
+    const counts = new Map<string, { left: number; right: number }>();
+    for (const s of data ?? []) {
+      const c = counts.get(s.exercise_id) ?? { left: 0, right: 0 };
+      if (s.side === "left") c.left++;
+      else if (s.side === "right") c.right++;
+      counts.set(s.exercise_id, c);
+    }
+    return unilateralIds.filter((id) => {
+      const c = counts.get(id);
+      return c && c.left !== c.right;
+    });
+  }
+
+  async function requestEndWorkout() {
+    const imbalanced = await findImbalancedUnilateralIds();
+    if (outstandingIds.length > 0 || imbalanced.length > 0) {
+      setImbalancedIds(imbalanced);
       setShowEndPrompt(true);
       return;
     }
@@ -884,26 +919,39 @@ export default function ActiveWorkoutPage() {
 
       {showEndPrompt && (
         <div className="mt-3 rounded-xl border border-tungsten-500 bg-tungsten-600/10 p-4">
-          <p className="text-sm text-tungsten-400">
-            {outstandingIds.length === 1
-              ? "You haven't logged a set for 1 exercise this workout:"
-              : `You haven't logged a set for ${outstandingIds.length} exercises this workout:`}
-          </p>
-          <div className="mt-2 flex flex-col gap-2">
-            {outstandingIds.map((id) => {
-              const ex = plannedExercises.find((e) => e.id === id);
-              if (!ex) return null;
-              return (
-                <button
-                  key={id}
-                  onClick={() => resumeSkippedExercise(id)}
-                  className="rounded-lg border border-steel-600 px-3 py-2 text-left text-sm text-chalk-100"
-                >
-                  Do {ex.name} now
-                </button>
-              );
-            })}
-          </div>
+          {outstandingIds.length > 0 && (
+            <>
+              <p className="text-sm text-tungsten-400">
+                {outstandingIds.length === 1
+                  ? "You haven't logged a set for 1 exercise this workout:"
+                  : `You haven't logged a set for ${outstandingIds.length} exercises this workout:`}
+              </p>
+              <div className="mt-2 flex flex-col gap-2">
+                {outstandingIds.map((id) => {
+                  const ex = plannedExercises.find((e) => e.id === id);
+                  if (!ex) return null;
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => resumeSkippedExercise(id)}
+                      className="rounded-lg border border-steel-600 px-3 py-2 text-left text-sm text-chalk-100"
+                    >
+                      Do {ex.name} now
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+          {imbalancedIds.length > 0 && (
+            <p className={outstandingIds.length > 0 ? "mt-3 text-sm text-tungsten-400" : "text-sm text-tungsten-400"}>
+              Left/right sets don't match for:{" "}
+              {imbalancedIds
+                .map((id) => plannedExercises.find((e) => e.id === id)?.name)
+                .filter(Boolean)
+                .join(", ")}
+            </p>
+          )}
           <div className="mt-3 flex gap-2">
             <button
               onClick={finishWorkout}
@@ -1449,30 +1497,6 @@ export default function ActiveWorkoutPage() {
             </button>
           </div>
 
-          {activeExercise.is_unilateral && (
-            <div className="mt-2 flex gap-2">
-              <button
-                onClick={() => updateDraft({ side: "left" })}
-                className={`flex-1 rounded-xl py-2 text-sm font-semibold ${
-                  side === "left"
-                    ? "bg-copper-500 text-steel-950"
-                    : "border border-steel-600 text-chalk-300"
-                }`}
-              >
-                Left
-              </button>
-              <button
-                onClick={() => updateDraft({ side: "right" })}
-                className={`flex-1 rounded-xl py-2 text-sm font-semibold ${
-                  side === "right"
-                    ? "bg-copper-500 text-steel-950"
-                    : "border border-steel-600 text-chalk-300"
-                }`}
-              >
-                Right
-              </button>
-            </div>
-          )}
 
           {suggestion?.reason === "increase" && (
             <button
@@ -1566,28 +1590,85 @@ export default function ActiveWorkoutPage() {
             </div>
           ) : (
             <div className="mt-4 rounded-xl border border-steel-700 bg-steel-900 p-4">
-              <div className="flex gap-3">
-                <label className="flex-1">
-                  <span className="font-mono text-xs text-chalk-500">Reps</span>
-                  <input
-                    type="number"
-                    value={reps}
-                    onChange={(e) => updateDraft({ reps: Number(e.target.value) })}
-                    onFocus={(e) => e.target.select()}
-                    className="mt-1 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
-                  />
-                </label>
-                <label className="flex-1">
-                  <span className="font-mono text-xs text-chalk-500">Weight ({"lb"})</span>
-                  <input
-                    type="number"
-                    value={weight === 0 ? "" : weight}
-                    onChange={(e) => updateDraft({ weight: e.target.value === "" ? 0 : Number(e.target.value) })}
-                    onFocus={(e) => e.target.select()}
-                    className="mt-1 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
-                  />
-                </label>
-              </div>
+              {activeExercise.is_unilateral ? (
+                <>
+                  <p className="font-mono text-[10px] uppercase tracking-widest text-chalk-500">
+                    Left
+                  </p>
+                  <div className="mt-1 flex gap-3">
+                    <label className="flex-1">
+                      <span className="font-mono text-xs text-chalk-500">Reps</span>
+                      <input
+                        type="number"
+                        value={reps}
+                        onChange={(e) => updateDraft({ reps: Number(e.target.value) })}
+                        onFocus={(e) => e.target.select()}
+                        className="mt-1 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
+                      />
+                    </label>
+                    <label className="flex-1">
+                      <span className="font-mono text-xs text-chalk-500">Weight ({"lb"})</span>
+                      <input
+                        type="number"
+                        value={weight === 0 ? "" : weight}
+                        onChange={(e) => updateDraft({ weight: e.target.value === "" ? 0 : Number(e.target.value) })}
+                        onFocus={(e) => e.target.select()}
+                        className="mt-1 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
+                      />
+                    </label>
+                  </div>
+                  <p className="mt-3 font-mono text-[10px] uppercase tracking-widest text-chalk-500">
+                    Right
+                  </p>
+                  <div className="mt-1 flex gap-3">
+                    <label className="flex-1">
+                      <span className="font-mono text-xs text-chalk-500">Reps</span>
+                      <input
+                        type="number"
+                        value={rightReps}
+                        onChange={(e) => updateDraft({ rightReps: Number(e.target.value) })}
+                        onFocus={(e) => e.target.select()}
+                        className="mt-1 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
+                      />
+                    </label>
+                    <label className="flex-1">
+                      <span className="font-mono text-xs text-chalk-500">Weight ({"lb"})</span>
+                      <input
+                        type="number"
+                        value={rightWeight === 0 ? "" : rightWeight}
+                        onChange={(e) =>
+                          updateDraft({ rightWeight: e.target.value === "" ? 0 : Number(e.target.value) })
+                        }
+                        onFocus={(e) => e.target.select()}
+                        className="mt-1 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
+                      />
+                    </label>
+                  </div>
+                </>
+              ) : (
+                <div className="flex gap-3">
+                  <label className="flex-1">
+                    <span className="font-mono text-xs text-chalk-500">Reps</span>
+                    <input
+                      type="number"
+                      value={reps}
+                      onChange={(e) => updateDraft({ reps: Number(e.target.value) })}
+                      onFocus={(e) => e.target.select()}
+                      className="mt-1 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
+                    />
+                  </label>
+                  <label className="flex-1">
+                    <span className="font-mono text-xs text-chalk-500">Weight ({"lb"})</span>
+                    <input
+                      type="number"
+                      value={weight === 0 ? "" : weight}
+                      onChange={(e) => updateDraft({ weight: e.target.value === "" ? 0 : Number(e.target.value) })}
+                      onFocus={(e) => e.target.select()}
+                      className="mt-1 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
+                    />
+                  </label>
+                </div>
+              )}
               <div className="mt-3 flex gap-2">
                 {(["easy", "moderate", "difficult", "failed"] as SetDifficulty[]).map((d) => (
                   <button
