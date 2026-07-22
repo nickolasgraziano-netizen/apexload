@@ -1,4 +1,4 @@
-import type { SetDifficulty, TrainingVariant } from "@/lib/types";
+import type { IntervalData, SetDifficulty, TrainingVariant } from "@/lib/types";
 
 interface VolumeSetInput {
   weight: number | null;
@@ -181,6 +181,17 @@ export function computeWeeklyDistance(
 /** Total distance covered in miles (cardio sets only) across all logged history. */
 export function computeTotalDistance(sets: { distance_miles: number | null }[]): number {
   return sets.reduce((sum, s) => sum + (s.distance_miles ?? 0), 0);
+}
+
+function formatMinutes(seconds: number): string {
+  const minutes = seconds / 60;
+  return Number.isInteger(minutes) ? String(minutes) : minutes.toFixed(1);
+}
+
+/** Human-readable one-liner for a logged interval structure, e.g. "Intervals: 2/2 min · 6 rounds". */
+export function formatIntervalSummary(data: IntervalData): string {
+  const rounds = `${data.roundsCompleted} round${data.roundsCompleted === 1 ? "" : "s"}`;
+  return `Intervals: ${formatMinutes(data.lowSeconds)}/${formatMinutes(data.highSeconds)} min · ${rounds}`;
 }
 
 /** Whole minutes between two ISO timestamps, floored at 0. */

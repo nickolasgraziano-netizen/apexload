@@ -1,6 +1,21 @@
 export type TrainingVariant = "standard" | "tut";
 export type SetDifficulty = "easy" | "moderate" | "difficult" | "failed";
 export type SetSide = "left" | "right";
+export type IntervalMode = "manual" | "rounds" | "duration";
+
+// Low/high interval structure for a cardio entry — one round is one low
+// interval followed by one high interval. "manual" mode ran until manually
+// stopped; "rounds"/"duration" ran until an upfront target was hit (and
+// carry that target for display even though roundsCompleted/duration are
+// what actually happened).
+export interface IntervalData {
+  lowSeconds: number;
+  highSeconds: number;
+  roundsCompleted: number;
+  mode: IntervalMode;
+  targetRounds: number | null;
+  targetMinutes: number | null;
+}
 
 // Shared taxonomy — either global (owner_id null, is_global true) or a
 // user-created custom group (e.g. "Cardio", "Elliptical", "Stair Climber").
@@ -103,6 +118,7 @@ export interface LoggedSet {
   notes: string | null; // cardio: intensity/style (incline, resistance, etc.)
   calories: number | null; // cardio: calories burned
   distance_miles: number | null; // cardio: distance covered, in miles
+  interval_data: IntervalData | null; // cardio: low/high interval structure, if timed that way
 }
 
 // A rotating group of 2-3 exercises alternated between sets, with a short
