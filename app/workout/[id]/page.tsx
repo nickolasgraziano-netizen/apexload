@@ -6,9 +6,11 @@ import { createClient } from "@/lib/supabase/client";
 import { suggestNextWeight } from "@/lib/suggestions";
 import { buildMotivationalMessage } from "@/lib/motivation";
 import { saveWorkoutTemplate, updateWorkoutTemplate } from "@/lib/templates";
+import { formatIntervalSummary } from "@/lib/metrics";
 import RestTimer from "@/components/RestTimer";
 import SetRow from "@/components/SetRow";
 import MuscleGroupSelect from "@/components/MuscleGroupSelect";
+import IntervalTimer from "@/components/IntervalTimer";
 import type {
   Exercise,
   LoggedSet,
@@ -16,6 +18,8 @@ import type {
   TrainingVariant,
   WorkoutSession,
   SetDifficulty,
+  IntervalData,
+  IntervalMode,
 } from "@/lib/types";
 
 interface SetDraft {
@@ -111,6 +115,18 @@ export default function ActiveWorkoutPage() {
   const [cardioCalories, setCardioCalories] = useState("");
   const [cardioDistanceMiles, setCardioDistanceMiles] = useState("");
   const [cardioEditing, setCardioEditing] = useState(false);
+
+  // Optional low/high interval timer for cardio — attaches an IntervalData
+  // summary to the cardio entry and, when run live, auto-fills the duration
+  // field from the timer's own elapsed time.
+  const [intervalResult, setIntervalResult] = useState<IntervalData | null>(null);
+  const [intervalSetupOpen, setIntervalSetupOpen] = useState(false);
+  const [intervalRunning, setIntervalRunning] = useState(false);
+  const [intervalLowMinutes, setIntervalLowMinutes] = useState("2");
+  const [intervalHighMinutes, setIntervalHighMinutes] = useState("2");
+  const [intervalMode, setIntervalMode] = useState<IntervalMode>("manual");
+  const [intervalTargetRounds, setIntervalTargetRounds] = useState("6");
+  const [intervalTargetMinutes, setIntervalTargetMinutes] = useState("30");
 
   // Exercises the lifter skipped this session (e.g. machine unavailable) —
   // kept per-session so we can prompt to circle back before ending.
@@ -400,14 +416,29 @@ export default function ActiveWorkoutPage() {
       setCardioCalories(cardioEntry.calories != null ? String(cardioEntry.calories) : "");
       setCardioDistanceMiles(cardioEntry.distance_miles != null ? String(cardioEntry.distance_miles) : "");
       setCardioEditing(false);
+      setIntervalResult(cardioEntry.interval_data ?? null);
     } else {
       setCardioDurationMinutes("");
       setCardioNotes("");
       setCardioCalories("");
       setCardioDistanceMiles("");
       setCardioEditing(true);
+      setIntervalResult(null);
     }
-  }, [activeExercise?.id, cardioEntry?.id]);
+
+    // Interval setup defaults to whatever this entry already has, or
+    // failing that the most recent past interval logged for this exercise
+    // (allSets is already this exercise's history, newest first) — so
+    // progressing from 2/2 min to 4/4 min just means bumping the numbers.
+    const defaults = cardioEntry?.interval_data ?? allSets.find((s) => s.interval_data != null)?.interval_data;
+    setIntervalLowMinutes(defaults ? String(defaults.lowSeconds / 60) : "2");
+    setIntervalHighMinutes(defaults ? String(defaults.highSeconds / 60) : "2");
+    setIntervalMode(defaults?.mode ?? "manual");
+    setIntervalTargetRounds(defaults?.targetRounds != null ? String(defaults.targetRounds) : "6");
+    setIntervalTargetMinutes(defaults?.targetMinutes != null ? String(defaults.targetMinutes) : "30");
+    setIntervalSetupOpen(false);
+    setIntervalRunning(false);
+  }, [activeExercise?.id, cardioEntry?.id, allSets]);
 
   async function saveCardio() {
     if (!activeExercise || !userId) return;
@@ -428,6 +459,7 @@ export default function ActiveWorkoutPage() {
           notes: trimmedNotes,
           calories: caloriesValue,
           distance_miles: distanceValue,
+          interval_data: intervalResult,
         })
         .eq("id", cardioEntry.id);
       setSessionSets((prev) =>
@@ -439,6 +471,7 @@ export default function ActiveWorkoutPage() {
                 notes: trimmedNotes,
                 calories: caloriesValue,
                 distance_miles: distanceValue,
+                interval_data: intervalResult,
               }
             : s
         )
@@ -460,6 +493,7 @@ export default function ActiveWorkoutPage() {
           notes: trimmedNotes,
           calories: caloriesValue,
           distance_miles: distanceValue,
+          interval_data: intervalResult,
         })
         .select()
         .single();
@@ -471,6 +505,28 @@ export default function ActiveWorkoutPage() {
       prev.includes(activeExercise.id) ? prev : [...prev, activeExercise.id]
     );
     setCardioEditing(false);
+  }
+
+  function startIntervalTimer() {
+    const low = Number(intervalLowMinutes);
+    const high = Number(intervalHighMinutes);
+    if (!Number.isFinite(low) || low <= 0 || !Number.isFinite(high) || high <= 0) return;
+    setIntervalSetupOpen(false);
+    setIntervalRunning(true);
+  }
+
+  function handleIntervalComplete(result: IntervalData & { totalElapsedSeconds: number }) {
+    setIntervalRunning(false);
+    setIntervalResult({
+      lowSeconds: result.lowSeconds,
+      highSeconds: result.highSeconds,
+      roundsCompleted: result.roundsCompleted,
+      mode: result.mode,
+      targetRounds: result.targetRounds,
+      targetMinutes: result.targetMinutes,
+    });
+    setCardioDurationMinutes(String(Math.max(1, Math.round(result.totalElapsedSeconds / 60))));
+    setCardioEditing(true);
   }
 
   async function logSet() {
@@ -1367,6 +1423,129 @@ export default function ActiveWorkoutPage() {
                       className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
                     />
                   </label>
+                  <div className="mt-3">
+                    {intervalSetupOpen ? (
+                      <div className="rounded-lg border border-steel-700 bg-steel-800 p-3">
+                        <div className="flex gap-3">
+                          <label className="min-w-0 flex-1">
+                            <span className="font-mono text-xs text-chalk-500">Low (min)</span>
+                            <input
+                              type="number"
+                              value={intervalLowMinutes}
+                              onChange={(e) => setIntervalLowMinutes(e.target.value)}
+                              onFocus={(e) => e.target.select()}
+                              className="mt-1 w-full rounded-lg border border-steel-700 bg-steel-900 px-3 py-2 text-chalk-100"
+                            />
+                          </label>
+                          <label className="min-w-0 flex-1">
+                            <span className="font-mono text-xs text-chalk-500">High (min)</span>
+                            <input
+                              type="number"
+                              value={intervalHighMinutes}
+                              onChange={(e) => setIntervalHighMinutes(e.target.value)}
+                              onFocus={(e) => e.target.select()}
+                              className="mt-1 w-full rounded-lg border border-steel-700 bg-steel-900 px-3 py-2 text-chalk-100"
+                            />
+                          </label>
+                        </div>
+                        <p className="mt-3 font-mono text-[10px] uppercase tracking-widest text-chalk-500">
+                          Stop when
+                        </p>
+                        <div className="mt-1 flex gap-2">
+                          {(
+                            [
+                              ["manual", "I say stop"],
+                              ["rounds", "Rounds hit"],
+                              ["duration", "Time's up"],
+                            ] as [IntervalMode, string][]
+                          ).map(([m, label]) => (
+                            <button
+                              key={m}
+                              type="button"
+                              onClick={() => setIntervalMode(m)}
+                              className={`flex-1 rounded-lg py-2 font-mono text-[11px] uppercase ${
+                                intervalMode === m
+                                  ? "bg-copper-500 text-steel-950"
+                                  : "border border-steel-600 text-chalk-300"
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                        {intervalMode === "rounds" && (
+                          <label className="mt-3 block">
+                            <span className="font-mono text-xs text-chalk-500">Target rounds</span>
+                            <input
+                              type="number"
+                              value={intervalTargetRounds}
+                              onChange={(e) => setIntervalTargetRounds(e.target.value)}
+                              onFocus={(e) => e.target.select()}
+                              className="mt-1 w-full rounded-lg border border-steel-700 bg-steel-900 px-3 py-2 text-chalk-100"
+                            />
+                          </label>
+                        )}
+                        {intervalMode === "duration" && (
+                          <label className="mt-3 block">
+                            <span className="font-mono text-xs text-chalk-500">Target total minutes</span>
+                            <input
+                              type="number"
+                              value={intervalTargetMinutes}
+                              onChange={(e) => setIntervalTargetMinutes(e.target.value)}
+                              onFocus={(e) => e.target.select()}
+                              className="mt-1 w-full rounded-lg border border-steel-700 bg-steel-900 px-3 py-2 text-chalk-100"
+                            />
+                          </label>
+                        )}
+                        <div className="mt-3 flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setIntervalSetupOpen(false)}
+                            className="flex-1 rounded-lg border border-steel-600 py-2 font-mono text-xs text-chalk-300"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={startIntervalTimer}
+                            className="flex-1 rounded-lg bg-copper-500 py-2 font-mono text-xs font-semibold text-steel-950"
+                          >
+                            Start
+                          </button>
+                        </div>
+                      </div>
+                    ) : intervalResult ? (
+                      <div className="flex items-center justify-between rounded-lg border border-steel-700 bg-steel-800 px-3 py-2">
+                        <span className="font-mono text-xs text-chalk-300">
+                          {formatIntervalSummary(intervalResult)}
+                        </span>
+                        <div className="flex gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setIntervalSetupOpen(true)}
+                            className="font-mono text-[10px] uppercase text-chalk-500 underline"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setIntervalResult(null)}
+                            className="font-mono text-[10px] uppercase text-copper-400 underline"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setIntervalSetupOpen(true)}
+                        className="w-full rounded-lg border border-dashed border-steel-600 py-2 font-mono text-xs uppercase tracking-widest text-chalk-300"
+                      >
+                        ⏱ Set up interval timer
+                      </button>
+                    )}
+                  </div>
                   <label className="mt-3 flex flex-col gap-1">
                     <span className="font-mono text-xs text-chalk-500">
                       Distance (miles, optional)
@@ -1426,6 +1605,11 @@ export default function ActiveWorkoutPage() {
                     {cardioEntry?.distance_miles != null && ` · ${cardioEntry.distance_miles} mi`}
                     {cardioEntry?.calories != null && ` · ${cardioEntry.calories} cal`}
                   </p>
+                  {cardioEntry?.interval_data && (
+                    <p className="mt-1 font-mono text-xs text-chalk-500">
+                      {formatIntervalSummary(cardioEntry.interval_data)}
+                    </p>
+                  )}
                   {cardioEntry?.notes && (
                     <p className="mt-1 text-sm text-chalk-300">{cardioEntry.notes}</p>
                   )}
@@ -1703,6 +1887,18 @@ export default function ActiveWorkoutPage() {
           defaultSeconds={restSeconds}
           message={motivationMessage}
           onDismiss={() => setShowTimer(false)}
+        />
+      )}
+
+      {intervalRunning && (
+        <IntervalTimer
+          lowSeconds={Math.round(Number(intervalLowMinutes) * 60)}
+          highSeconds={Math.round(Number(intervalHighMinutes) * 60)}
+          mode={intervalMode}
+          targetRounds={intervalMode === "rounds" ? Number(intervalTargetRounds) || null : null}
+          targetMinutes={intervalMode === "duration" ? Number(intervalTargetMinutes) || null : null}
+          onComplete={handleIntervalComplete}
+          onCancel={() => setIntervalRunning(false)}
         />
       )}
     </main>

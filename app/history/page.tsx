@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { formatIntervalSummary } from "@/lib/metrics";
+import type { IntervalData } from "@/lib/types";
 
 interface HistoryDay {
   sessionId: string;
@@ -37,6 +39,7 @@ interface ExerciseDetail {
     setNotes: string | null;
     calories: number | null;
     distanceMiles: number | null;
+    intervalData: IntervalData | null;
   }[];
 }
 
@@ -98,7 +101,7 @@ export default function HistoryPage() {
     const { data: setRows } = await supabase
       .from("sets")
       .select(
-        "actual_reps, weight, training_variant, side, duration_seconds, notes, calories, distance_miles, logged_at, exercises ( name )"
+        "actual_reps, weight, training_variant, side, duration_seconds, notes, calories, distance_miles, interval_data, logged_at, exercises ( name )"
       )
       .eq("session_id", sessionId)
       .order("logged_at");
@@ -120,6 +123,7 @@ export default function HistoryPage() {
         setNotes: s.notes,
         calories: s.calories,
         distanceMiles: s.distance_miles,
+        intervalData: s.interval_data,
       });
     }
     setDetailsCache((prev) => ({ ...prev, [sessionId]: grouped }));
@@ -380,6 +384,7 @@ export default function HistoryPage() {
                                 {Math.round(s.durationSeconds / 60)} min
                                 {s.distanceMiles != null && ` · ${s.distanceMiles} mi`}
                                 {s.calories != null && ` · ${s.calories} cal`}
+                                {s.intervalData && ` · ${formatIntervalSummary(s.intervalData)}`}
                                 {s.setNotes && ` · ${s.setNotes}`}
                               </span>
                             ) : (

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import MuscleGroupSelect from "@/components/MuscleGroupSelect";
-import type { Exercise, MuscleGroup, SetDifficulty, SetSide, TrainingVariant } from "@/lib/types";
+import type { Exercise, IntervalData, MuscleGroup, SetDifficulty, SetSide, TrainingVariant } from "@/lib/types";
 
 interface SetEntry {
   reps: number;
@@ -21,6 +21,9 @@ interface ExerciseEntry {
   cardioNotes: string;
   cardioCalories: string;
   cardioDistanceMiles: string;
+  cardioIntervalLowMinutes: string;
+  cardioIntervalHighMinutes: string;
+  cardioIntervalRounds: string;
 }
 
 const DEFAULT_SET: SetEntry = {
@@ -30,6 +33,26 @@ const DEFAULT_SET: SetEntry = {
   variant: "standard",
   side: null,
 };
+
+function parseIntervalEntry(entry: {
+  cardioIntervalLowMinutes: string;
+  cardioIntervalHighMinutes: string;
+  cardioIntervalRounds: string;
+}): IntervalData | null {
+  const low = Number(entry.cardioIntervalLowMinutes);
+  const high = Number(entry.cardioIntervalHighMinutes);
+  const rounds = Number(entry.cardioIntervalRounds);
+  if (!Number.isFinite(low) || low <= 0 || !Number.isFinite(high) || high <= 0) return null;
+  if (!Number.isFinite(rounds) || rounds <= 0) return null;
+  return {
+    lowSeconds: Math.round(low * 60),
+    highSeconds: Math.round(high * 60),
+    roundsCompleted: Math.round(rounds),
+    mode: "manual",
+    targetRounds: null,
+    targetMinutes: null,
+  };
+}
 
 function todayLocal(): string {
   const d = new Date();
@@ -87,6 +110,9 @@ export default function LogPastWorkoutPage() {
               cardioNotes: "",
               cardioCalories: "",
               cardioDistanceMiles: "",
+              cardioIntervalLowMinutes: "",
+              cardioIntervalHighMinutes: "",
+              cardioIntervalRounds: "",
             },
           ]
     );
@@ -97,7 +123,16 @@ export default function LogPastWorkoutPage() {
   function updateCardioEntry(
     exerciseId: string,
     patch: Partial<
-      Pick<ExerciseEntry, "cardioDurationMinutes" | "cardioNotes" | "cardioCalories" | "cardioDistanceMiles">
+      Pick<
+        ExerciseEntry,
+        | "cardioDurationMinutes"
+        | "cardioNotes"
+        | "cardioCalories"
+        | "cardioDistanceMiles"
+        | "cardioIntervalLowMinutes"
+        | "cardioIntervalHighMinutes"
+        | "cardioIntervalRounds"
+      >
     >
   ) {
     setEntries((prev) =>
@@ -219,6 +254,7 @@ export default function LogPastWorkoutPage() {
       notes: string | null;
       calories: number | null;
       distance_miles: number | null;
+      interval_data: IntervalData | null;
       logged_at: string;
     }[] = [];
     for (const entry of entries) {
@@ -245,6 +281,7 @@ export default function LogPastWorkoutPage() {
           notes: entry.cardioNotes.trim() || null,
           calories: caloriesValue,
           distance_miles: distanceValue,
+          interval_data: parseIntervalEntry(entry),
           logged_at: new Date(startedAt.getTime() + minuteOffset * 60 * 1000).toISOString(),
         });
         continue;
@@ -267,6 +304,7 @@ export default function LogPastWorkoutPage() {
           notes: null,
           calories: null,
           distance_miles: null,
+          interval_data: null,
           logged_at: new Date(startedAt.getTime() + minuteOffset * 60 * 1000).toISOString(),
         });
       });
@@ -376,6 +414,44 @@ export default function LogPastWorkoutPage() {
                     className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
                   />
                 </label>
+                <div className="flex gap-2">
+                  <label className="min-w-0 flex-1 flex flex-col gap-1">
+                    <span className="font-mono text-xs text-chalk-500">Interval low (min)</span>
+                    <input
+                      type="number"
+                      value={entry.cardioIntervalLowMinutes}
+                      onChange={(e) =>
+                        updateCardioEntry(entry.exercise.id, { cardioIntervalLowMinutes: e.target.value })
+                      }
+                      onFocus={(e) => e.target.select()}
+                      className="w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
+                    />
+                  </label>
+                  <label className="min-w-0 flex-1 flex flex-col gap-1">
+                    <span className="font-mono text-xs text-chalk-500">Interval high (min)</span>
+                    <input
+                      type="number"
+                      value={entry.cardioIntervalHighMinutes}
+                      onChange={(e) =>
+                        updateCardioEntry(entry.exercise.id, { cardioIntervalHighMinutes: e.target.value })
+                      }
+                      onFocus={(e) => e.target.select()}
+                      className="w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
+                    />
+                  </label>
+                  <label className="min-w-0 flex-1 flex flex-col gap-1">
+                    <span className="font-mono text-xs text-chalk-500">Rounds</span>
+                    <input
+                      type="number"
+                      value={entry.cardioIntervalRounds}
+                      onChange={(e) =>
+                        updateCardioEntry(entry.exercise.id, { cardioIntervalRounds: e.target.value })
+                      }
+                      onFocus={(e) => e.target.select()}
+                      className="w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
+                    />
+                  </label>
+                </div>
                 <label className="flex flex-col gap-1">
                   <span className="font-mono text-xs text-chalk-500">
                     Notes (intensity, incline, etc.)

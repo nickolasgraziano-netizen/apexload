@@ -11,6 +11,7 @@ import {
   computeWeeklyCalories,
   computeWeeklyDistance,
   computeWeeklyVolume,
+  formatIntervalSummary,
   isoWeekStart,
 } from "@/lib/metrics";
 
@@ -181,6 +182,34 @@ describe("computeTotalDistance", () => {
 
   it("returns 0 for an empty list", () => {
     expect(computeTotalDistance([])).toBe(0);
+  });
+});
+
+describe("formatIntervalSummary", () => {
+  it("formats whole-minute intervals with a pluralized round count", () => {
+    expect(
+      formatIntervalSummary({
+        lowSeconds: 120,
+        highSeconds: 120,
+        roundsCompleted: 6,
+        mode: "rounds",
+        targetRounds: 6,
+        targetMinutes: null,
+      })
+    ).toBe("Intervals: 2/2 min · 6 rounds");
+  });
+
+  it("singularizes a one-round session and formats fractional minutes", () => {
+    expect(
+      formatIntervalSummary({
+        lowSeconds: 90,
+        highSeconds: 240,
+        roundsCompleted: 1,
+        mode: "manual",
+        targetRounds: null,
+        targetMinutes: null,
+      })
+    ).toBe("Intervals: 1.5/4 min · 1 round");
   });
 });
 
