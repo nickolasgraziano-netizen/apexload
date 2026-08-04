@@ -90,3 +90,17 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ApexLoad is portrait-only. The manifest's orientation lock only applies
+   once installed to a home screen — this is what actually enforces it in
+   every context, including a plain browser tab. max-height keeps this from
+   firing on a wide-but-short desktop window, which is landscape but isn't
+   a phone turned sideways. */
+.landscape-lock {
+  display: none;
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  .landscape-lock {
+    display: flex;
+  }
+}

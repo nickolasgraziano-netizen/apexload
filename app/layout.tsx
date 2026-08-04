@@ -58,6 +58,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className="bg-steel-950 text-chalk-100 font-body antialiased">
+        <div className="landscape-lock fixed inset-0 z-50 flex-col items-center justify-center gap-3 bg-steel-950 px-8 text-center">
+          <p className="font-display text-2xl font-extrabold text-chalk-100">Rotate back to portrait</p>
+          <p className="text-sm text-chalk-500">ApexLoad is designed for portrait use only.</p>
+        </div>
         <HomeBar />
         <div className="mx-auto max-w-md">{children}</div>
         <ThemeSwitcher />

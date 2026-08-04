@@ -537,14 +537,20 @@ export default function ActiveWorkoutPage() {
     // rows would double-count rounds.
     const setNumber = Math.max(0, ...sessionSets.map((s) => s.set_number)) + 1;
 
-    // Superset-aware rest: short between exercises in the cycle, long once
+    // Superset-aware rest: no timer at all moving from one paired exercise
+    // to the next (that's the point of pairing them), but a long rest once
     // you've cycled back through every exercise in the group. Otherwise a
     // flat 30s default — adjustable in the timer itself in 15s increments.
     let rest = 30;
+    let skipTimer = false;
     if (activeGroup) {
       const isLastInGroup =
         activeGroup.exerciseIds[activeGroup.exerciseIds.length - 1] === activeExercise.id;
-      rest = isLastInGroup ? SUPERSET_LONG_REST : SUPERSET_SHORT_REST;
+      if (isLastInGroup) {
+        rest = SUPERSET_LONG_REST;
+      } else {
+        skipTimer = true;
+      }
     }
 
     const base = {
@@ -590,7 +596,7 @@ export default function ActiveWorkoutPage() {
     );
 
     setRestSeconds(rest);
-    setShowTimer(true);
+    setShowTimer(!skipTimer);
     setRestKey((k) => k + 1);
     setJustLoggedSet(true);
     setFreshLog(true);
