@@ -52,7 +52,7 @@ export default function RestTimer({ defaultSeconds = 30, message, onDismiss }: P
   const pct = Math.min(100, Math.round(((defaultSeconds - remaining) / defaultSeconds) * 100));
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-steel-700/70 bg-steel-900/85 px-5 pb-6 pt-4 backdrop-blur-lg">
+    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-steel-700/70 bg-steel-900/85 px-5 pb-14 pt-4 backdrop-blur-lg">
       <div className="mb-3 h-1 w-full overflow-hidden rounded-full bg-steel-700">
         <div
           className="h-full bg-tungsten-500 transition-all duration-300"
@@ -90,6 +90,12 @@ export default function RestTimer({ defaultSeconds = 30, message, onDismiss }: P
         </div>
       </div>
       {message && <p className="mt-3 text-sm text-tungsten-400">{message}</p>}
+      {/* Extra clearance for a real device safe-area (notch/gesture bar) on
+          top of the flat pb-14 above, which alone covers the common case of
+          an OS or launcher dock the browser has no visibility into and so
+          can't report via env(safe-area-inset-bottom). A bare env() with a
+          fallback can't invalidate this element even where it's unsupported. */}
+      <div style={{ height: "env(safe-area-inset-bottom, 0px)" }} />
     </div>
   );
 }
