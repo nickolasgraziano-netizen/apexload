@@ -53,8 +53,8 @@ export default function RestTimer({ defaultSeconds = 30, message, onDismiss }: P
 
   return (
     <div
-      className="fixed inset-x-0 bottom-0 z-20 border-t border-steel-700/70 bg-steel-900/85 px-5 pb-6 pt-4 backdrop-blur-lg"
-      style={{ paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom, 0px))" }}
+      className="fixed inset-x-0 bottom-0 z-20 border-t border-steel-700/70 bg-steel-900/85 px-5 pt-4 backdrop-blur-lg"
+      style={{ paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom))" }}
     >
       <div className="mb-3 h-1 w-full overflow-hidden rounded-full bg-steel-700">
         <div
