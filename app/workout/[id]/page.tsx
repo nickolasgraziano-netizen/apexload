@@ -186,12 +186,12 @@ export default function ActiveWorkoutPage() {
     displayZeroAsEmpty = false
   ) {
     const buttonClass =
-      "flex min-h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-steel-600 bg-steel-950/40 text-2xl font-semibold leading-none text-chalk-100 active:border-copper-500 active:bg-copper-500 active:text-steel-950";
+      "flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-steel-600 bg-steel-950/40 text-2xl font-semibold leading-none text-chalk-100 active:border-copper-500 active:bg-copper-500 active:text-steel-950 max-[380px]:h-10 max-[380px]:w-10";
 
     return (
-      <label className="flex-1">
+      <label className="min-w-0 flex-1">
         <span className="font-mono text-xs text-chalk-500">{label}</span>
-        <div className="mt-1 flex items-center gap-2 rounded-lg border border-steel-700 bg-steel-800 p-2">
+        <div className="mt-1 flex w-full min-w-0 items-center gap-2 rounded-lg border border-steel-700 bg-steel-800 p-2 max-[380px]:gap-1.5 max-[380px]:p-1.5">
           <button
             type="button"
             onClick={() => adjustDraftNumber(field, -step, min)}
@@ -210,7 +210,7 @@ export default function ActiveWorkoutPage() {
               updateDraft({ [field]: e.target.value === "" ? min : Number(e.target.value) })
             }
             onFocus={(e) => e.target.select()}
-            className="min-w-0 flex-1 border-0 bg-transparent px-1 py-2 text-center font-display text-4xl font-extrabold text-chalk-100 outline-none"
+            className="min-w-0 flex-1 border-0 bg-transparent px-0 py-2 text-center font-display text-3xl font-extrabold text-chalk-100 outline-none sm:text-4xl"
           />
           <button
             type="button"
@@ -1930,20 +1930,20 @@ export default function ActiveWorkoutPage() {
                   <p className="font-mono text-[10px] uppercase tracking-widest text-chalk-500">
                     Left
                   </p>
-                  <div className="mt-1 flex gap-3">
+                  <div className="mt-1 flex min-w-0 gap-3 max-[340px]:flex-col">
                     {renderDraftStepper("Reps", "reps", reps, 1, 1)}
                     {renderDraftStepper("Weight (lb)", "weight", weight, 5, 0, true)}
                   </div>
                   <p className="mt-3 font-mono text-[10px] uppercase tracking-widest text-chalk-500">
                     Right
                   </p>
-                  <div className="mt-1 flex gap-3">
+                  <div className="mt-1 flex min-w-0 gap-3 max-[340px]:flex-col">
                     {renderDraftStepper("Reps", "rightReps", rightReps, 1, 1)}
                     {renderDraftStepper("Weight (lb)", "rightWeight", rightWeight, 5, 0, true)}
                   </div>
                 </>
               ) : (
-                <div className="flex gap-3">
+                <div className="flex min-w-0 gap-3 max-[340px]:flex-col">
                   {renderDraftStepper("Reps", "reps", reps, 1, 1)}
                   {renderDraftStepper("Weight (lb)", "weight", weight, 5, 0, true)}
                 </div>
