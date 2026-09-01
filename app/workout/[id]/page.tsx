@@ -32,6 +32,7 @@ interface SetDraft {
 }
 
 type DraftNumberField = "reps" | "weight" | "rightReps" | "rightWeight";
+type DraftStepperAction = `${DraftNumberField}:${"down" | "up"}`;
 
 interface SupersetGroupView {
   id: string;
@@ -65,6 +66,7 @@ export default function ActiveWorkoutPage() {
   // Per-exercise unsaved set drafts, so hopping between exercises never loses
   // what you were about to log — interrupted sets pick back up untouched.
   const [drafts, setDrafts] = useState<Record<string, SetDraft>>({});
+  const [pressedStepperAction, setPressedStepperAction] = useState<DraftStepperAction | null>(null);
   const [showTimer, setShowTimer] = useState(false);
   const [restKey, setRestKey] = useState(0); // bump to force a fresh countdown, even mid-rest
   const [restSnapshot, setRestSnapshot] = useState<{ remaining: number; pct: number } | null>(null);
@@ -186,7 +188,20 @@ export default function ActiveWorkoutPage() {
     displayZeroAsEmpty = false
   ) {
     const buttonClass =
-      "flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-steel-600 bg-steel-950/40 text-2xl font-semibold leading-none text-chalk-100 active:border-copper-500 active:bg-copper-500 active:text-steel-950 max-[380px]:h-10 max-[380px]:w-10";
+      "flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border text-2xl font-semibold leading-none max-[380px]:h-10 max-[380px]:w-10";
+    const getButtonClass = (action: DraftStepperAction) =>
+      `${buttonClass} ${
+        pressedStepperAction === action
+          ? "border-copper-500 bg-copper-500 text-steel-950"
+          : "border-steel-600 bg-steel-950/40 text-chalk-100"
+      }`;
+    const adjustWithFeedback = (action: DraftStepperAction, delta: number) => {
+      setPressedStepperAction(action);
+      adjustDraftNumber(field, delta, min);
+      window.setTimeout(() => {
+        setPressedStepperAction((current) => (current === action ? null : current));
+      }, 140);
+    };
 
     return (
       <label className="min-w-0 flex-1">
@@ -194,9 +209,9 @@ export default function ActiveWorkoutPage() {
         <div className="mt-1 flex w-full min-w-0 items-center gap-2 rounded-lg border border-steel-700 bg-steel-800 p-2 max-[380px]:gap-1.5 max-[380px]:p-1.5">
           <button
             type="button"
-            onClick={() => adjustDraftNumber(field, -step, min)}
+            onClick={() => adjustWithFeedback(`${field}:down`, -step)}
             aria-label={`Decrease ${label.toLowerCase()} by ${step}`}
-            className={buttonClass}
+            className={getButtonClass(`${field}:down`)}
           >
             -
           </button>
@@ -214,9 +229,9 @@ export default function ActiveWorkoutPage() {
           />
           <button
             type="button"
-            onClick={() => adjustDraftNumber(field, step, min)}
+            onClick={() => adjustWithFeedback(`${field}:up`, step)}
             aria-label={`Increase ${label.toLowerCase()} by ${step}`}
-            className={buttonClass}
+            className={getButtonClass(`${field}:up`)}
           >
             +
           </button>
