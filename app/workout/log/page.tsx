@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import MuscleGroupSelect from "@/components/MuscleGroupSelect";
+import BruceLeeQuote from "@/components/BruceLeeQuote";
 import type { Exercise, IntervalData, MuscleGroup, SetDifficulty, SetSide, TrainingVariant } from "@/lib/types";
 
 interface SetEntry {
@@ -118,6 +119,7 @@ export default function LogPastWorkoutPage() {
     );
     setShowPicker(false);
     setPickerQuery("");
+    setPickerGroupId("");
   }
 
   function updateCardioEntry(
@@ -321,12 +323,13 @@ export default function LogPastWorkoutPage() {
   );
 
   return (
-    <main className="min-h-screen px-5 pb-40 pt-8">
-      <p className="font-mono text-xs uppercase tracking-widest text-copper-500">ApexLoad</p>
-      <h1 className="mt-1 font-display text-3xl font-extrabold text-chalk-100">Log a past workout</h1>
-      <p className="mt-1 text-sm text-chalk-500">
+    <main className="apex-page pb-40">
+      <p className="apex-kicker">ApexLoad</p>
+      <h1 className="apex-title">Log a past workout</h1>
+      <p className="apex-copy">
         For entries from your log book — type in the whole workout at once, no live timer needed.
       </p>
+      <BruceLeeQuote className="mt-4" />
 
       <label className="mt-5 flex flex-col gap-1">
         <span className="font-mono text-xs uppercase tracking-widest text-chalk-500">
@@ -336,7 +339,7 @@ export default function LogPastWorkoutPage() {
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. Push Day"
-          className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
+          className="apex-input"
         />
       </label>
 
@@ -347,7 +350,7 @@ export default function LogPastWorkoutPage() {
           value={date}
           max={todayLocal()}
           onChange={(e) => setDate(e.target.value)}
-          className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
+          className="apex-input"
         />
       </label>
 
@@ -360,13 +363,13 @@ export default function LogPastWorkoutPage() {
           onChange={(e) => setNotes(e.target.value)}
           placeholder="How it felt, gym conditions, anything to remember…"
           rows={3}
-          className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
+          className="apex-input"
         />
       </label>
 
       <div className="mt-6 flex flex-col gap-4">
         {entries.map((entry) => (
-          <div key={entry.exercise.id} className="rounded-2xl border border-steel-700 bg-steel-900 p-4">
+          <div key={entry.exercise.id} className="apex-card">
             <div className="flex items-center justify-between">
               <p className="font-display text-lg font-bold text-chalk-100">{entry.exercise.name}</p>
               <button
@@ -550,13 +553,13 @@ export default function LogPastWorkoutPage() {
 
       <button
         onClick={() => setShowPicker(true)}
-        className="mt-4 w-full rounded-xl border border-dashed border-steel-600 py-3 text-sm text-chalk-300"
+            className="mt-4 w-full rounded-lg border border-dashed border-steel-600 py-4 text-sm font-semibold text-chalk-300"
       >
         + Add exercise
       </button>
 
       {showPicker && (
-        <div className="mt-3 rounded-xl border border-steel-700 bg-steel-900 p-3">
+        <div className="mt-3 rounded-lg border border-steel-700 bg-steel-900 p-3">
           <div className="flex items-center justify-between">
             <p className="font-mono text-xs uppercase tracking-widest text-chalk-500">Add exercise</p>
             <button onClick={() => setShowPicker(false)} className="text-xs text-chalk-500">
@@ -568,20 +571,37 @@ export default function LogPastWorkoutPage() {
             placeholder="Search by name…"
             value={pickerQuery}
             onChange={(e) => setPickerQuery(e.target.value)}
-            className="mt-2 w-full rounded-lg border border-steel-500 bg-steel-800 px-3 py-2 text-sm text-chalk-100 outline-none placeholder:text-chalk-500 focus:border-copper-500"
+            className="apex-input-compact mt-2"
           />
-          <select
-            value={pickerGroupId}
-            onChange={(e) => setPickerGroupId(e.target.value)}
-            className="mt-2 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
-          >
-            <option value="">All muscle groups</option>
+          <div className="mt-2 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <button
+              type="button"
+              onClick={() => setPickerGroupId("")}
+              aria-pressed={pickerGroupId === ""}
+              className={`shrink-0 rounded-full px-3 py-2 font-mono text-[10px] uppercase tracking-widest ${
+                pickerGroupId === ""
+                  ? "bg-copper-500 text-steel-950"
+                  : "border border-steel-600 text-chalk-300"
+              }`}
+            >
+              All
+            </button>
             {groups.map((g) => (
-              <option key={g.id} value={g.id}>
+              <button
+                key={g.id}
+                type="button"
+                onClick={() => setPickerGroupId((current) => (current === g.id ? "" : g.id))}
+                aria-pressed={pickerGroupId === g.id}
+                className={`shrink-0 rounded-full px-3 py-2 font-mono text-[10px] uppercase tracking-widest ${
+                  pickerGroupId === g.id
+                    ? "bg-copper-500 text-steel-950"
+                    : "border border-steel-600 text-chalk-300"
+                }`}
+              >
                 {g.name}
-              </option>
+              </button>
             ))}
-          </select>
+          </div>
           <ul className="mt-2 flex max-h-60 flex-col gap-1 overflow-y-auto">
             {filteredCatalog.map((ex) => (
               <li key={ex.id}>
@@ -607,7 +627,7 @@ export default function LogPastWorkoutPage() {
                 placeholder="Exercise name"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
+                className="apex-input-compact"
               />
               <MuscleGroupSelect
                 groups={groups}
@@ -635,7 +655,7 @@ export default function LogPastWorkoutPage() {
               </label>
               <button
                 onClick={addCustomExercise}
-                className="rounded-lg bg-copper-500 py-2 text-sm font-semibold text-steel-950"
+                className="rounded-lg bg-copper-500 py-3 text-sm font-semibold text-steel-950"
               >
                 Add and use
               </button>
@@ -647,7 +667,7 @@ export default function LogPastWorkoutPage() {
       <button
         onClick={saveWorkout}
         disabled={saving || entries.length === 0}
-        className="mt-6 w-full rounded-xl bg-copper-500 px-4 py-4 text-center font-body font-semibold text-steel-950 active:bg-copper-600 disabled:opacity-50"
+        className="mt-6 w-full rounded-lg bg-copper-500 px-4 py-4 text-center font-body font-semibold text-steel-950 active:bg-copper-600 disabled:opacity-50"
       >
         {saving ? "Saving…" : "Save workout"}
       </button>

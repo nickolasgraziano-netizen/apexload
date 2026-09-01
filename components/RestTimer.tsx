@@ -6,6 +6,8 @@ import { computeTimerEndTimestamp, playRestCompleteChime, secondsRemaining } fro
 interface Props {
   defaultSeconds?: number;
   message?: string;
+  hidden?: boolean;
+  onTick?: (snapshot: { remaining: number; pct: number }) => void;
   onDismiss: () => void;
 }
 
@@ -19,7 +21,7 @@ interface Props {
  * the tab is backgrounded isn't achievable from the web platform, so this
  * assumes the phone stays unlocked and the app stays in view during a set.
  */
-export default function RestTimer({ defaultSeconds = 30, message, onDismiss }: Props) {
+export default function RestTimer({ defaultSeconds = 30, message, hidden = false, onTick, onDismiss }: Props) {
   const [endAt, setEndAt] = useState(() => computeTimerEndTimestamp(defaultSeconds));
   const [remaining, setRemaining] = useState(defaultSeconds);
   const chimedRef = useRef(false);
@@ -48,48 +50,61 @@ export default function RestTimer({ defaultSeconds = 30, message, onDismiss }: P
     });
   }
 
-  const total = Math.max(remaining, 1);
   const pct = Math.min(100, Math.round(((defaultSeconds - remaining) / defaultSeconds) * 100));
 
+  useEffect(() => {
+    onTick?.({ remaining, pct });
+  }, [onTick, pct, remaining]);
+
+  if (hidden) return null;
+
   return (
-    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-steel-700/70 bg-steel-900/85 px-5 pb-6 pt-4 backdrop-blur-lg">
-      <div className="mb-3 h-1 w-full overflow-hidden rounded-full bg-steel-700">
+    <div className="apex-rest-timer fixed inset-x-0 bottom-[4.5rem] z-50 border-t border-steel-700/70 bg-steel-900/95 shadow-2xl shadow-steel-950/70 backdrop-blur-lg">
+      <div className="apex-rest-timer-inner mx-auto max-w-md px-5 pb-3 pt-3">
+      <div className="mb-2 h-1 w-full overflow-hidden rounded-full bg-steel-700">
         <div
           className="h-full bg-tungsten-500 transition-all duration-300"
           style={{ width: `${pct}%` }}
         />
       </div>
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="font-mono text-xs uppercase tracking-widest text-chalk-500">Resting</p>
-          <p className="font-display text-4xl font-extrabold tabular-nums text-chalk-100">
-            {remaining === 0 ? "Go" : `0:${String(remaining).padStart(2, "0")}`}
-          </p>
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="apex-rest-timer-main flex items-baseline gap-3">
+            <p className="font-mono text-xs uppercase tracking-widest text-chalk-500">Resting</p>
+            <p className="font-display text-4xl font-extrabold leading-none tabular-nums text-chalk-100">
+              {remaining === 0 ? "Go" : `0:${String(remaining).padStart(2, "0")}`}
+            </p>
+          </div>
+          {message && (
+            <p className="apex-rest-timer-message mt-1 truncate text-sm leading-5 text-tungsten-400">
+              {message}
+            </p>
+          )}
         </div>
-        <div className="flex gap-3">
+        <div className="apex-rest-timer-actions grid shrink-0 grid-cols-3 gap-2">
           <button
             onClick={() => addSeconds(-15)}
-            className="rounded-lg border border-steel-600 px-4 py-2.5 font-mono text-sm text-chalk-300"
+            className="min-w-16 rounded-lg border border-steel-600 px-3 py-2.5 font-mono text-sm text-chalk-300"
             aria-label="Subtract 15 seconds"
           >
             -15s
           </button>
           <button
             onClick={() => addSeconds(15)}
-            className="rounded-lg border border-steel-600 px-4 py-2.5 font-mono text-sm text-chalk-300"
+            className="min-w-16 rounded-lg border border-steel-600 px-3 py-2.5 font-mono text-sm text-chalk-300"
             aria-label="Add 15 seconds"
           >
             +15s
           </button>
           <button
             onClick={onDismiss}
-            className="rounded-lg bg-copper-500 px-4 py-2 font-body text-sm font-semibold text-steel-950"
+            className="min-w-16 rounded-lg bg-copper-500 px-3 py-2 font-body text-sm font-semibold text-steel-950"
           >
             Skip
           </button>
         </div>
       </div>
-      {message && <p className="mt-3 text-sm text-tungsten-400">{message}</p>}
+      </div>
     </div>
   );
 }

@@ -32,10 +32,39 @@ export const GENERIC_MESSAGES = [
   "If you love life, don't waste time, for time is what life is made up of. — Bruce Lee",
   "The key to immortality is first living a life worth remembering. — Bruce Lee",
   "A wise man can learn more from a foolish question than a fool can learn from a wise answer. — Bruce Lee",
+  "Using no way as way; having no limitation as limitation. — Bruce Lee",
+  "To change with change is the changeless state. — Bruce Lee",
+  "The meaning of life is that it is to be lived. — Bruce Lee",
+  "Don't think. Feel. — Bruce Lee",
+  "Life itself is your teacher, and you are in a state of constant learning. — Bruce Lee",
+  "A goal is not always meant to be reached; it often serves simply as something to aim at. — Bruce Lee",
+  "Preparation for tomorrow is hard work today. — Bruce Lee",
+  "Showing off is the fool's idea of glory. — Bruce Lee",
+  "Simplicity is the key to brilliance. — Bruce Lee",
+  "The less effort, the faster and more powerful you will be. — Bruce Lee",
+  "Take things as they are. Punch when you have to punch. Kick when you have to kick. — Bruce Lee",
+  "Real living is living for others. — Bruce Lee",
+  "Only the self-sufficient stand alone; most people follow the crowd and imitate. — Bruce Lee",
+  "Defeat is a state of mind; no one is ever defeated until defeat has been accepted as a reality. — Bruce Lee",
+  "Practice makes perfect. After a long time of practicing, our work will become natural, skillful, swift, and steady. — Bruce Lee",
+  "Art calls for complete mastery of techniques, developed by reflection within the soul. — Bruce Lee",
+  "Choose the positive. You have choice; you are master of your attitude. — Bruce Lee",
+  "What you habitually think largely determines what you will ultimately become. — Bruce Lee",
+  "It's not what you give, it's how you give it. — Bruce Lee",
+  "I am actualizing myself daily to be an Artist of Life. — Bruce Lee",
 ];
 
-/** Picks a random quote from the pool — a fresh draw every time it's called,
- * so the same quote doesn't keep showing up in the same spot. */
+export function shuffleMessages(messages: string[] = GENERIC_MESSAGES): string[] {
+  const shuffled = [...messages];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+/** Picks a random quote from the pool as a server-safe fallback. Client quote
+ * moments use a session queue so the journey avoids repeats. */
 export function pickGenericMessage(): string {
   return GENERIC_MESSAGES[Math.floor(Math.random() * GENERIC_MESSAGES.length)];
 }

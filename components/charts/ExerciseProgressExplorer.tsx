@@ -5,17 +5,45 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 import { createClient } from "@/lib/supabase/client";
 import type { Exercise } from "@/lib/types";
 
+type ExerciseWithGroup = Exercise & { muscle_groups?: { name: string } | null };
+
 interface ProgressPoint {
   loggedAt: string;
   weight: number;
   label: string;
 }
 
-export default function ExerciseProgressExplorer({ exercises }: { exercises: Exercise[] }) {
+export default function ExerciseProgressExplorer({ exercises }: { exercises: ExerciseWithGroup[] }) {
   const [exerciseId, setExerciseId] = useState(exercises[0]?.id ?? "");
+  const [query, setQuery] = useState("");
+  const [groupFilterId, setGroupFilterId] = useState("");
   const [points, setPoints] = useState<ProgressPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [personalBest, setPersonalBest] = useState<number | null>(null);
+
+  const groupOptions = Array.from(
+    exercises.reduce((map, ex) => {
+      if (ex.muscle_group_id && ex.muscle_groups?.name) {
+        map.set(ex.muscle_group_id, ex.muscle_groups.name);
+      }
+      return map;
+    }, new Map<string, string>())
+  )
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const filteredExercises = exercises.filter(
+    (ex) =>
+      ex.name.toLowerCase().includes(query.toLowerCase()) &&
+      (!groupFilterId || ex.muscle_group_id === groupFilterId)
+  );
+
+  useEffect(() => {
+    if (filteredExercises.length === 0) return;
+    if (!filteredExercises.some((ex) => ex.id === exerciseId)) {
+      setExerciseId(filteredExercises[0].id);
+    }
+  }, [exerciseId, filteredExercises]);
 
   useEffect(() => {
     if (!exerciseId) return;
@@ -47,13 +75,51 @@ export default function ExerciseProgressExplorer({ exercises }: { exercises: Exe
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-3">
+      <div className="space-y-3">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search exercises..."
+          className="apex-input-compact"
+        />
+        <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <button
+            type="button"
+            onClick={() => setGroupFilterId("")}
+            aria-pressed={groupFilterId === ""}
+            className={`shrink-0 rounded-full px-3 py-2 font-mono text-[10px] uppercase tracking-widest ${
+              groupFilterId === ""
+                ? "bg-copper-500 text-steel-950"
+                : "border border-steel-600 text-chalk-300"
+            }`}
+          >
+            All
+          </button>
+          {groupOptions.map((g) => (
+            <button
+              key={g.id}
+              type="button"
+              onClick={() => setGroupFilterId((current) => (current === g.id ? "" : g.id))}
+              aria-pressed={groupFilterId === g.id}
+              className={`shrink-0 rounded-full px-3 py-2 font-mono text-[10px] uppercase tracking-widest ${
+                groupFilterId === g.id
+                  ? "bg-copper-500 text-steel-950"
+                  : "border border-steel-600 text-chalk-300"
+              }`}
+            >
+              {g.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-center justify-between gap-3">
         <select
           value={exerciseId}
           onChange={(e) => setExerciseId(e.target.value)}
           className="w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
         >
-          {exercises.map((ex) => (
+          {filteredExercises.map((ex) => (
             <option key={ex.id} value={ex.id}>
               {ex.name}
             </option>

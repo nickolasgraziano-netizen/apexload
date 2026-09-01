@@ -1,0 +1,11 @@
+logphotos/
+*.jpg
+*.jpeg
+*.png
+!public/*.jpg
+!public/*.jpeg
+!public/*.png
+.env
+.env*
+.next/
+node_modules/

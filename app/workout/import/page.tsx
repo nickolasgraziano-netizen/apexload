@@ -1,35 +1,41 @@
 import Link from "next/link";
+import BruceLeeQuote from "@/components/BruceLeeQuote";
 
 export default function ImportWorkoutsPage() {
   return (
-    <main className="min-h-screen px-5 pb-24 pt-8">
-      <p className="font-mono text-xs uppercase tracking-widest text-copper-500">ApexLoad</p>
-      <h1 className="mt-1 font-display text-3xl font-extrabold text-chalk-100">Log past workouts</h1>
-      <p className="mt-1 text-sm text-chalk-500">
+    <main className="apex-page">
+      <p className="apex-kicker">ApexLoad</p>
+      <h1 className="apex-title">Log past workouts</h1>
+      <p className="apex-copy">
         Bringing over entries from a handwritten log book — pick how you want to get them in.
       </p>
+      <BruceLeeQuote className="mt-4" />
 
       <div className="mt-6 flex flex-col gap-3">
         <Link
           href="/workout/log"
-          className="rounded-2xl border border-steel-700 bg-steel-900 p-4"
+          className="apex-action"
         >
-          <p className="font-display text-lg font-bold text-chalk-100">Enter manually</p>
-          <p className="mt-1 text-sm text-chalk-500">
-            Pick a date, add exercises, and type in the sets — built for typing in a whole page at
-            once, no live timer needed.
-          </p>
+          <div>
+            <p className="font-semibold text-chalk-100">Enter manually</p>
+            <p className="mt-1 text-sm text-chalk-500">
+              Pick a date, add exercises, and type in sets.
+            </p>
+          </div>
+          <span className="font-mono text-xs text-copper-400">→</span>
         </Link>
 
         <Link
           href="/workout/import/photo"
-          className="rounded-2xl border border-steel-700 bg-steel-900 p-4"
+          className="apex-action-primary"
         >
-          <p className="font-display text-lg font-bold text-chalk-100">Import from a photo</p>
-          <p className="mt-1 text-sm text-chalk-500">
-            Take a picture of a log book page and have it read into your history automatically.
-            You'll always get a chance to review and correct it before anything is saved.
-          </p>
+          <div>
+            <p>Import from a photo</p>
+            <p className="mt-1 text-sm font-normal text-steel-800">
+              Read a logbook page, then review before saving.
+            </p>
+          </div>
+          <span className="font-mono text-xs">→</span>
         </Link>
       </div>
     </main>

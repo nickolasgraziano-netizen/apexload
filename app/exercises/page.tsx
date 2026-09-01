@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import MuscleGroupSelect from "@/components/MuscleGroupSelect";
+import BruceLeeQuote from "@/components/BruceLeeQuote";
 import type { Exercise, MuscleGroup } from "@/lib/types";
 
 export default function ExerciseCatalogPage() {
@@ -11,6 +12,7 @@ export default function ExerciseCatalogPage() {
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [showHidden, setShowHidden] = useState(false);
   const [query, setQuery] = useState("");
+  const [groupFilterId, setGroupFilterId] = useState("");
   const [sortMode, setSortMode] = useState<"alpha" | "group">("alpha");
   const [customOnly, setCustomOnly] = useState(false);
   // Browsing always wins by default since it's the far more common action.
@@ -237,6 +239,7 @@ export default function ExerciseCatalogPage() {
 
   const filtered = exercises
     .filter((e) => e.name.toLowerCase().includes(query.toLowerCase()))
+    .filter((e) => !groupFilterId || e.muscle_group_id === groupFilterId)
     .filter((e) => (showHidden ? hiddenIds.has(e.id) : !hiddenIds.has(e.id)))
     .filter((e) => (customOnly ? e.is_custom : true));
 
@@ -251,16 +254,16 @@ export default function ExerciseCatalogPage() {
       : filtered;
 
   return (
-    <main className="min-h-screen px-5 pb-24 pt-8">
+    <main className="apex-page">
       <div className="flex items-center justify-between">
         <div>
-          <p className="font-mono text-xs uppercase tracking-widest text-copper-500">Catalog</p>
-          <h1 className="mt-1 font-display text-3xl font-extrabold text-chalk-100">Exercises</h1>
+          <p className="apex-kicker">Catalog</p>
+          <h1 className="apex-title">Exercises</h1>
         </div>
         {pickerTab === "browse" && (hiddenIds.size > 0 || showHidden) && (
           <button
             onClick={() => setShowHidden((v) => !v)}
-            className="rounded-lg border border-steel-600/60 bg-steel-900/40 px-3 py-1.5 font-mono text-xs text-chalk-300 backdrop-blur-md"
+            className="apex-chip"
           >
             {showHidden ? "Show catalog" : `Show hidden (${hiddenIds.size})`}
           </button>
@@ -290,14 +293,46 @@ export default function ExerciseCatalogPage() {
         </button>
       </div>
 
+      {pickerTab === "browse" && <BruceLeeQuote className="mt-4" />}
+
       {pickerTab === "browse" ? (
         <>
           <input
             placeholder="Search exercises…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="mt-3 w-full rounded-xl border border-steel-500 bg-steel-900 px-4 py-3 text-chalk-100 outline-none placeholder:text-chalk-500 focus:border-copper-500"
+            className="apex-input mt-3"
           />
+
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <button
+              type="button"
+              onClick={() => setGroupFilterId("")}
+              aria-pressed={groupFilterId === ""}
+              className={`shrink-0 rounded-full px-3 py-2 font-mono text-[10px] uppercase tracking-widest ${
+                groupFilterId === ""
+                  ? "bg-copper-500 text-steel-950"
+                  : "border border-steel-600 text-chalk-300"
+              }`}
+            >
+              All
+            </button>
+            {groups.map((g) => (
+              <button
+                key={g.id}
+                type="button"
+                onClick={() => setGroupFilterId((current) => (current === g.id ? "" : g.id))}
+                aria-pressed={groupFilterId === g.id}
+                className={`shrink-0 rounded-full px-3 py-2 font-mono text-[10px] uppercase tracking-widest ${
+                  groupFilterId === g.id
+                    ? "bg-copper-500 text-steel-950"
+                    : "border border-steel-600 text-chalk-300"
+                }`}
+              >
+                {g.name}
+              </button>
+            ))}
+          </div>
 
           <div className="mt-3 flex flex-wrap gap-2">
             <button
@@ -352,14 +387,14 @@ export default function ExerciseCatalogPage() {
                 {groupName}
               </p>
             )}
-            <div className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3">
+            <div className="apex-card">
             {editingId === ex.id ? (
               <div className="flex flex-col gap-2">
                 <input
                   autoFocus
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
+                  className="apex-input-compact"
                 />
                 <MuscleGroupSelect
                   groups={groups}
@@ -367,19 +402,19 @@ export default function ExerciseCatalogPage() {
                   onChange={setEditGroupId}
                   onGroupCreated={(g) => setGroups((prev) => [...prev, g])}
                   userId={userId}
-                  className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
+                  className="apex-input-compact"
                 />
                 <div className="flex gap-2">
                   <button
                     onClick={() => saveEdit(ex.id)}
                     disabled={savingEdit || !editName.trim() || !editGroupId}
-                    className="rounded-lg bg-copper-500 px-3 py-1.5 text-xs font-semibold text-steel-950 disabled:opacity-50"
+                    className="rounded-lg bg-copper-500 px-3 py-2 text-xs font-semibold text-steel-950 disabled:opacity-50"
                   >
                     {savingEdit ? "Saving…" : "Save"}
                   </button>
                   <button
                     onClick={() => setEditingId(null)}
-                    className="rounded-lg border border-steel-600 px-3 py-1.5 text-xs text-chalk-300"
+                    className="apex-secondary-button"
                   >
                     Cancel
                   </button>
@@ -391,12 +426,12 @@ export default function ExerciseCatalogPage() {
                   {photoUrls[ex.id] ? (
                     <button
                       onClick={() => setEnlargedExerciseId(ex.id)}
-                      className="h-10 w-10 shrink-0 overflow-hidden rounded-lg"
+                      className="h-11 w-11 shrink-0 overflow-hidden rounded-lg"
                     >
-                      <img src={photoUrls[ex.id]} alt="" className="h-10 w-10 object-cover" />
+                      <img src={photoUrls[ex.id]} alt="" className="h-11 w-11 object-cover" />
                     </button>
                   ) : (
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-dashed border-steel-600 bg-steel-800 text-chalk-600">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-dashed border-steel-600 bg-steel-800 text-chalk-600">
                       <svg
                         viewBox="0 0 24 24"
                         fill="none"
@@ -411,7 +446,7 @@ export default function ExerciseCatalogPage() {
                     </div>
                   )}
                   <div>
-                    <p className="text-chalk-100">{ex.name}</p>
+                    <p className="font-semibold text-chalk-100">{ex.name}</p>
                     <div className="flex flex-wrap gap-2">
                       {ex.is_custom && (
                         <span className="font-mono text-[10px] uppercase text-tungsten-400">
@@ -457,7 +492,7 @@ export default function ExerciseCatalogPage() {
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   {!showHidden && (
-                    <label className="cursor-pointer rounded-lg border border-steel-600 px-3 py-1.5 text-xs text-chalk-300">
+                    <label className="apex-secondary-button cursor-pointer">
                       {uploadingFor === ex.id ? "Uploading…" : "📷 Photo"}
                       <input
                         type="file"
@@ -473,14 +508,14 @@ export default function ExerciseCatalogPage() {
                   {showHidden ? (
                     <button
                       onClick={() => unhideExercise(ex.id)}
-                      className="rounded-lg bg-copper-500 px-3 py-1.5 text-xs font-semibold text-steel-950"
+                      className="rounded-lg bg-copper-500 px-3 py-2 text-xs font-semibold text-steel-950"
                     >
                       Unhide
                     </button>
                   ) : (
                     <button
                       onClick={() => hideExercise(ex.id)}
-                      className="rounded-lg border border-copper-600 px-3 py-1.5 text-xs text-copper-400"
+                      className="apex-danger-button"
                     >
                       Hide
                     </button>
@@ -495,8 +530,8 @@ export default function ExerciseCatalogPage() {
           </ul>
         </>
       ) : (
-        <section className="mt-3 rounded-2xl border border-steel-700 bg-steel-900 p-4">
-          <h2 className="font-mono text-xs uppercase tracking-widest text-chalk-500">
+        <section className="apex-card mt-3">
+          <h2 className="apex-section-title">
             Add custom exercise
           </h2>
           <div className="mt-2 flex flex-col gap-2">
@@ -505,7 +540,7 @@ export default function ExerciseCatalogPage() {
               placeholder="Exercise name"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
+              className="apex-input-compact"
             />
             <MuscleGroupSelect
               groups={groups}
@@ -516,7 +551,7 @@ export default function ExerciseCatalogPage() {
               }}
               onGroupCreated={(g) => setGroups((prev) => [...prev, g])}
               userId={userId}
-              className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
+              className="apex-input-compact"
             />
             <label className="flex items-center gap-2 text-sm text-chalk-300">
               <input
@@ -537,7 +572,7 @@ export default function ExerciseCatalogPage() {
             {addError && <p className="text-xs text-copper-400">{addError}</p>}
             <button
               onClick={addCustomExercise}
-              className="rounded-lg bg-copper-500 py-2 text-sm font-semibold text-steel-950"
+              className="rounded-lg bg-copper-500 py-3 text-sm font-semibold text-steel-950"
             >
               Add
             </button>

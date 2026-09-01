@@ -48,23 +48,26 @@ export default function TemplateList({
   if (items.length === 0) return null;
 
   return (
-    <section className="mt-6 flex flex-col gap-2">
-      <h3 className="font-mono text-xs uppercase tracking-widest text-chalk-500">Templates</h3>
+    <section className="apex-section flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <h3 className="apex-section-title">Templates</h3>
+        <span className="apex-chip">{items.length} saved</span>
+      </div>
       {items.map((t) => (
         <div
           key={t.id}
           onClick={() => router.push(`/workout/plan/${t.id}`)}
-          className="flex cursor-pointer items-center justify-between rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 active:bg-steel-800"
+          className="apex-card flex cursor-pointer items-center justify-between gap-3 active:bg-steel-800"
         >
           <div className="min-w-0">
-            <span className="text-chalk-100">{t.name}</span>
+            <span className="font-semibold text-chalk-100">{t.name}</span>
             {t.notes && <p className="mt-0.5 text-xs text-chalk-500">{t.notes}</p>}
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <Link
               href={`/workout/plan/edit/${t.id}`}
               onClick={(e) => e.stopPropagation()}
-              className="rounded-lg border border-steel-600 px-3 py-1.5 text-xs text-chalk-300"
+              className="apex-secondary-button"
             >
               Edit
             </Link>
@@ -74,7 +77,7 @@ export default function TemplateList({
                 startTemplate(t);
               }}
               disabled={startingId === t.id}
-              className="rounded-lg bg-copper-500 px-3 py-1.5 text-xs font-semibold text-steel-950 disabled:opacity-50"
+              className="rounded-lg bg-copper-500 px-3 py-2 text-xs font-semibold text-steel-950 disabled:opacity-50"
             >
               {startingId === t.id ? "Starting…" : "Start"}
             </button>
@@ -85,7 +88,7 @@ export default function TemplateList({
               }}
               disabled={deletingId === t.id}
               aria-label="Delete plan"
-              className="rounded-lg border border-copper-600 px-2 py-1.5 text-xs text-copper-400 disabled:opacity-50"
+              className="apex-danger-button px-2 disabled:opacity-50"
             >
               {deletingId === t.id ? "…" : "✕"}
             </button>

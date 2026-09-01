@@ -177,6 +177,7 @@ export default function EditWorkoutPage() {
     );
     setShowPicker(false);
     setPickerQuery("");
+    setPickerGroupId("");
   }
 
   function updateCardioEntry(
@@ -631,18 +632,35 @@ export default function EditWorkoutPage() {
             onChange={(e) => setPickerQuery(e.target.value)}
             className="mt-2 w-full rounded-lg border border-steel-500 bg-steel-800 px-3 py-2 text-sm text-chalk-100 outline-none placeholder:text-chalk-500 focus:border-copper-500"
           />
-          <select
-            value={pickerGroupId}
-            onChange={(e) => setPickerGroupId(e.target.value)}
-            className="mt-2 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
-          >
-            <option value="">All muscle groups</option>
+          <div className="mt-2 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <button
+              type="button"
+              onClick={() => setPickerGroupId("")}
+              aria-pressed={pickerGroupId === ""}
+              className={`shrink-0 rounded-full px-3 py-2 font-mono text-[10px] uppercase tracking-widest ${
+                pickerGroupId === ""
+                  ? "bg-copper-500 text-steel-950"
+                  : "border border-steel-600 text-chalk-300"
+              }`}
+            >
+              All
+            </button>
             {groups.map((g) => (
-              <option key={g.id} value={g.id}>
+              <button
+                key={g.id}
+                type="button"
+                onClick={() => setPickerGroupId((current) => (current === g.id ? "" : g.id))}
+                aria-pressed={pickerGroupId === g.id}
+                className={`shrink-0 rounded-full px-3 py-2 font-mono text-[10px] uppercase tracking-widest ${
+                  pickerGroupId === g.id
+                    ? "bg-copper-500 text-steel-950"
+                    : "border border-steel-600 text-chalk-300"
+                }`}
+              >
                 {g.name}
-              </option>
+              </button>
             ))}
-          </select>
+          </div>
           <ul className="mt-2 flex max-h-60 flex-col gap-1 overflow-y-auto">
             {filteredCatalog.map((ex) => (
               <li key={ex.id}>

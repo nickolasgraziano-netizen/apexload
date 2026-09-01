@@ -22,6 +22,7 @@ import {
   VolumeChart,
 } from "@/components/charts/MetricsCharts";
 import ExerciseProgressExplorer from "@/components/charts/ExerciseProgressExplorer";
+import BruceLeeQuote from "@/components/BruceLeeQuote";
 import type { Exercise, WorkoutSession } from "@/lib/types";
 
 export default async function ProgressPage() {
@@ -49,8 +50,11 @@ export default async function ProgressPage() {
     );
   const sets = (setRows ?? []) as any[];
 
-  const { data: exerciseRows } = await supabase.from("exercises").select("*").order("name");
-  const exercises = (exerciseRows ?? []) as Exercise[];
+  const { data: exerciseRows } = await supabase
+    .from("exercises")
+    .select("*, muscle_groups ( name )")
+    .order("name");
+  const exercises = (exerciseRows ?? []) as (Exercise & { muscle_groups: { name: string } | null })[];
 
   const setsWithMuscleGroup = sets
     .filter((s) => s.exercises?.muscle_group_id)
@@ -101,15 +105,12 @@ export default async function ProgressPage() {
   });
 
   return (
-    <main className="min-h-screen px-5 pb-24 pt-8">
+    <main className="apex-page">
       <div className="flex items-center justify-between">
         <div>
-          <p className="font-mono text-xs uppercase tracking-widest text-copper-500">ApexLoad</p>
-          <h1 className="mt-1 font-display text-3xl font-extrabold text-chalk-100">Progress</h1>
+          <p className="apex-kicker">ApexLoad</p>
+          <h1 className="apex-title">Progress</h1>
         </div>
-        <Link href="/" className="font-mono text-xs text-chalk-500 underline">
-          Home
-        </Link>
       </div>
 
       {sessions.length === 0 ? (
@@ -118,15 +119,17 @@ export default async function ProgressPage() {
         </p>
       ) : (
         <>
-          <section className="mt-6 rounded-2xl border border-tungsten-500 bg-tungsten-600/10 p-4">
-            <p className="font-mono text-xs uppercase tracking-widest text-tungsten-400">
+          <section className="apex-card-live mt-6">
+            <p className="apex-section-title text-tungsten-400">
               Highlight
             </p>
             <p className="mt-1 text-chalk-100">{highlightMessage}</p>
           </section>
 
-          <section className="mt-6">
-            <h2 className="font-mono text-xs uppercase tracking-widest text-chalk-500">
+          <BruceLeeQuote className="mt-4" />
+
+          <section className="apex-section">
+            <h2 className="apex-section-title">
               Muscle group freshness
             </h2>
             <div className="mt-2 flex flex-col gap-2">
@@ -136,7 +139,7 @@ export default async function ProgressPage() {
                 return (
                   <div
                     key={f.muscleGroupId}
-                    className={`flex items-center justify-between rounded-xl border px-4 py-3 ${
+                    className={`flex items-center justify-between rounded-lg border px-4 py-3 ${
                       stale ? "border-copper-600 bg-copper-600/10" : "border-steel-700 bg-steel-900"
                     }`}
                   >
@@ -156,8 +159,8 @@ export default async function ProgressPage() {
             </div>
           </section>
 
-          <section className="mt-6 rounded-2xl border border-steel-700 bg-steel-900 p-4">
-            <h2 className="font-mono text-xs uppercase tracking-widest text-chalk-500">
+          <section className="apex-card apex-section">
+            <h2 className="apex-section-title">
               Weekly volume by muscle group
             </h2>
             <div className="mt-2">
@@ -165,8 +168,8 @@ export default async function ProgressPage() {
             </div>
           </section>
 
-          <section className="mt-6 rounded-2xl border border-steel-700 bg-steel-900 p-4">
-            <h2 className="font-mono text-xs uppercase tracking-widest text-chalk-500">
+          <section className="apex-card apex-section">
+            <h2 className="apex-section-title">
               Sessions per week
             </h2>
             <div className="mt-2">
@@ -175,38 +178,38 @@ export default async function ProgressPage() {
           </section>
 
           {(weeklyCalories.length > 0 || weeklyDistance.length > 0) && (
-            <section className="mt-6 rounded-2xl border border-steel-700 bg-steel-900 p-4">
-              <h2 className="font-mono text-xs uppercase tracking-widest text-chalk-500">Cardio</h2>
+            <section className="apex-card apex-section">
+              <h2 className="apex-section-title">Cardio</h2>
               <div className="mt-2 grid grid-cols-2 gap-3">
-                <div className="rounded-xl border border-steel-700 bg-steel-800 p-3 text-center">
-                  <p className="font-display text-2xl font-extrabold text-chalk-100">
+                <div className="apex-stat text-center">
+                  <p className="apex-stat-value">
                     {distanceThisWeek.toLocaleString()}
                   </p>
-                  <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-chalk-500">
+                  <p className="apex-stat-label">
                     This week (mi)
                   </p>
                 </div>
-                <div className="rounded-xl border border-steel-700 bg-steel-800 p-3 text-center">
-                  <p className="font-display text-2xl font-extrabold text-chalk-100">
+                <div className="apex-stat text-center">
+                  <p className="apex-stat-value">
                     {totalDistance.toLocaleString()}
                   </p>
-                  <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-chalk-500">
+                  <p className="apex-stat-label">
                     All-time (mi)
                   </p>
                 </div>
-                <div className="rounded-xl border border-steel-700 bg-steel-800 p-3 text-center">
-                  <p className="font-display text-2xl font-extrabold text-chalk-100">
+                <div className="apex-stat text-center">
+                  <p className="apex-stat-value">
                     {caloriesThisWeek.toLocaleString()}
                   </p>
-                  <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-chalk-500">
+                  <p className="apex-stat-label">
                     This week (cal)
                   </p>
                 </div>
-                <div className="rounded-xl border border-steel-700 bg-steel-800 p-3 text-center">
-                  <p className="font-display text-2xl font-extrabold text-chalk-100">
+                <div className="apex-stat text-center">
+                  <p className="apex-stat-value">
                     {totalCalories.toLocaleString()}
                   </p>
-                  <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-chalk-500">
+                  <p className="apex-stat-label">
                     All-time (cal)
                   </p>
                 </div>
@@ -234,8 +237,8 @@ export default async function ProgressPage() {
             </section>
           )}
 
-          <section className="mt-6 rounded-2xl border border-steel-700 bg-steel-900 p-4">
-            <h2 className="font-mono text-xs uppercase tracking-widest text-chalk-500">
+          <section className="apex-card apex-section">
+            <h2 className="apex-section-title">
               Effort calibration
             </h2>
             <p className="mt-1 text-xs text-chalk-500">
@@ -251,8 +254,8 @@ export default async function ProgressPage() {
             <VariantChart data={variantSplit} />
           </section>
 
-          <section className="mt-6 rounded-2xl border border-steel-700 bg-steel-900 p-4">
-            <h2 className="font-mono text-xs uppercase tracking-widest text-chalk-500">
+          <section className="apex-card apex-section">
+            <h2 className="apex-section-title">
               Exercise progress
             </h2>
             <div className="mt-3">

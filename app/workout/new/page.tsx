@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import TemplateList from "@/components/TemplateList";
+import BruceLeeQuote from "@/components/BruceLeeQuote";
 import type { WorkoutTemplate } from "@/lib/types";
 
 // Starting a workout is just two choices: build one from scratch (which
@@ -26,30 +27,32 @@ export default function WorkoutChooser() {
   }, []);
 
   return (
-    <main className="min-h-screen px-5 pb-24 pt-8">
-      <p className="font-mono text-xs uppercase tracking-widest text-copper-500">Set up</p>
-      <h1 className="mt-1 font-display text-3xl font-extrabold text-chalk-100">
+    <main className="apex-page">
+      <p className="apex-kicker">Set up</p>
+      <h1 className="apex-title">
         Start a workout
       </h1>
+      <p className="apex-copy">Choose whether this is a live session, a saved plan, or a repeat from your history.</p>
+      <BruceLeeQuote className="mt-4" />
 
       <Link
         href="/workout/build"
-        className="mt-6 flex items-center justify-between rounded-xl border border-steel-700/60 bg-steel-900/60 px-4 py-3 backdrop-blur-md"
+        className="apex-action-primary mt-6"
       >
         <div>
-          <p className="text-chalk-100">Build a new workout</p>
-          <p className="mt-0.5 text-xs text-chalk-500">
+          <p>Build a new workout</p>
+          <p className="mt-0.5 text-xs font-normal text-steel-800">
             Name it, add exercises one at a time, start logging right away
           </p>
         </div>
-        <span className="font-mono text-xs text-copper-400">→</span>
+        <span className="font-mono text-xs">→</span>
       </Link>
       <Link
         href="/workout/plan"
-        className="mt-2 flex items-center justify-between rounded-xl border border-steel-700/60 bg-steel-900/60 px-4 py-3 backdrop-blur-md"
+        className="apex-action mt-2"
       >
         <div>
-          <p className="text-chalk-100">Plan a workout for later</p>
+          <p className="font-semibold text-chalk-100">Plan a workout for later</p>
           <p className="mt-0.5 text-xs text-chalk-500">
             Save it now, no live logging — start it whenever you're ready
           </p>
@@ -59,16 +62,16 @@ export default function WorkoutChooser() {
 
       {userId && <TemplateList templates={templates} userId={userId} />}
 
-      <section className="mt-6">
-        <h2 className="font-mono text-xs uppercase tracking-widest text-chalk-500">
+      <section className="apex-section">
+        <h2 className="apex-section-title">
           Or reuse a past workout
         </h2>
         <Link
           href="/history"
-          className="mt-2 flex items-center justify-between rounded-xl border border-steel-700/60 bg-steel-900/60 px-4 py-3 backdrop-blur-md"
+          className="apex-action mt-2"
         >
           <div>
-            <p className="text-chalk-100">Repeat from History</p>
+            <p className="font-semibold text-chalk-100">Repeat from History</p>
             <p className="mt-0.5 text-xs text-chalk-500">Pick any day you've already done</p>
           </div>
           <span className="font-mono text-xs text-copper-400">→</span>

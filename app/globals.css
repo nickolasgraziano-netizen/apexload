@@ -9,23 +9,23 @@
      Add a new theme by adding another [data-theme="..."] block here and
      an entry in components/ThemeSwitcher.tsx's THEMES list. */
   :root {
-    --color-steel-950: 11 13 16;
-    --color-steel-900: 19 22 27;
-    --color-steel-800: 27 31 38;
-    --color-steel-700: 38 43 51;
-    --color-steel-600: 58 65 73;
-    --color-steel-500: 91 99 109;
-    --color-steel-400: 136 144 153;
-    --color-chalk-100: 245 243 238;
-    --color-chalk-300: 216 212 202;
-    --color-chalk-500: 169 164 151;
+    --color-steel-950: 13 15 18;
+    --color-steel-900: 20 24 29;
+    --color-steel-800: 30 36 43;
+    --color-steel-700: 43 51 60;
+    --color-steel-600: 64 75 87;
+    --color-steel-500: 102 112 124;
+    --color-steel-400: 146 154 164;
+    --color-chalk-100: 248 243 233;
+    --color-chalk-300: 218 211 199;
+    --color-chalk-500: 164 156 143;
     --color-copper-400: 255 224 102;
-    --color-copper-500: 255 212 0;
-    --color-copper-600: 230 190 0;
-    --color-copper-700: 201 164 0;
-    --color-tungsten-400: 255 107 87;
-    --color-tungsten-500: 227 66 52;
-    --color-tungsten-600: 196 52 31;
+    --color-copper-500: 255 212 74;
+    --color-copper-600: 224 178 42;
+    --color-copper-700: 171 127 27;
+    --color-tungsten-400: 255 123 96;
+    --color-tungsten-500: 241 91 70;
+    --color-tungsten-600: 202 64 47;
   }
 
   /* "Iron & Ember" — dark-gym palette: near-black steel, ember-orange
@@ -64,8 +64,8 @@
      visible to blend with, instead of blurring a flat solid color. */
   body {
     background-image:
-      radial-gradient(600px circle at 85% 0%, rgb(var(--color-copper-500) / 0.08), transparent 60%),
-      radial-gradient(500px circle at 0% 100%, rgb(var(--color-tungsten-500) / 0.06), transparent 60%);
+      radial-gradient(640px circle at 82% -8%, rgb(var(--color-copper-500) / 0.1), transparent 58%),
+      linear-gradient(180deg, rgb(var(--color-steel-900) / 0.38), rgb(var(--color-steel-950)) 320px);
     background-attachment: fixed;
   }
 
@@ -83,6 +83,136 @@
   }
 }
 
+@layer components {
+  .apex-page {
+    @apply min-h-screen px-5 pb-32 pt-7;
+  }
+
+  .apex-page-live {
+    @apply min-h-screen px-5 pb-32 pt-5;
+  }
+
+  .apex-kicker {
+    @apply font-mono text-xs uppercase tracking-widest text-copper-500;
+  }
+
+  .apex-title {
+    @apply mt-1 font-display text-4xl font-extrabold uppercase leading-none text-chalk-100;
+  }
+
+  .apex-title-sm {
+    @apply mt-1 font-display text-3xl font-extrabold uppercase leading-none text-chalk-100;
+  }
+
+  .apex-copy {
+    @apply mt-2 text-sm leading-6 text-chalk-500;
+  }
+
+  .apex-section {
+    @apply mt-7;
+  }
+
+  .apex-section-title {
+    @apply font-mono text-xs uppercase tracking-widest text-chalk-500;
+  }
+
+  .apex-card {
+    @apply rounded-lg border border-steel-700 bg-steel-900 px-4 py-3;
+  }
+
+  .apex-card-soft {
+    @apply rounded-lg border border-steel-700/70 bg-steel-900/70 px-4 py-3 backdrop-blur-md;
+  }
+
+  .apex-card-hot {
+    @apply rounded-lg border border-copper-500/60 bg-copper-500/10 px-4 py-3;
+  }
+
+  .apex-card-live {
+    @apply rounded-lg border border-tungsten-500/60 bg-tungsten-600/10 px-4 py-3;
+  }
+
+  .apex-action {
+    @apply flex min-h-[64px] items-center justify-between rounded-lg border border-steel-700 bg-steel-900 px-4 py-3 text-left;
+  }
+
+  .apex-action-primary {
+    @apply flex min-h-[60px] items-center justify-between rounded-lg bg-copper-500 px-4 py-3 font-semibold text-steel-950 shadow-lg shadow-copper-500/10;
+  }
+
+  .apex-action-live {
+    @apply flex min-h-[60px] items-center justify-between rounded-lg bg-tungsten-500 px-4 py-3 font-semibold text-steel-950 shadow-lg shadow-tungsten-500/10;
+  }
+
+  .apex-secondary-button {
+    @apply rounded-lg border border-steel-600 bg-steel-900/60 px-3 py-2 text-xs font-semibold text-chalk-300;
+  }
+
+  .apex-danger-button {
+    @apply rounded-lg border border-copper-600 px-3 py-2 text-xs font-semibold text-copper-400;
+  }
+
+  .apex-chip {
+    @apply inline-flex min-h-[30px] items-center rounded-full bg-steel-800 px-3 font-mono text-[11px] font-medium uppercase tracking-widest text-chalk-300;
+  }
+
+  .apex-chip-hot {
+    @apply inline-flex min-h-[30px] items-center rounded-full bg-copper-500 px-3 font-mono text-[11px] font-semibold uppercase tracking-widest text-steel-950;
+  }
+
+  .apex-input {
+    @apply w-full rounded-lg border border-steel-600 bg-steel-900 px-4 py-3 text-chalk-100 outline-none placeholder:text-chalk-500 focus:border-copper-500;
+  }
+
+  .apex-input-compact {
+    @apply rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100 outline-none focus:border-copper-500;
+  }
+
+  .apex-stat {
+    @apply rounded-lg border border-steel-700 bg-steel-900 p-3;
+  }
+
+  .apex-stat-value {
+    @apply font-display text-3xl font-extrabold leading-none text-chalk-100;
+  }
+
+  .apex-stat-label {
+    @apply mt-1 font-mono text-[10px] uppercase tracking-widest text-chalk-500;
+  }
+
+  .apex-bottom-nav {
+    @apply fixed inset-x-0 bottom-0 z-40 border-t border-steel-700/80 bg-steel-950/95 backdrop-blur-md;
+  }
+
+  .apex-bottom-nav-inner {
+    @apply mx-auto grid max-w-md grid-cols-4 gap-1 px-4 py-3;
+  }
+
+  .apex-bottom-nav-inner-theme {
+    @apply grid-cols-5 px-2;
+  }
+
+  .apex-bottom-link {
+    @apply flex min-h-[48px] flex-col items-center justify-center gap-1 rounded-lg font-mono text-[10px] uppercase tracking-widest text-chalk-500;
+  }
+
+  .apex-bottom-link-active {
+    @apply bg-steel-800 text-copper-400;
+  }
+
+  .apex-workout-sheet {
+    @apply fixed inset-x-0 bottom-0 z-50 mx-auto max-h-[86vh] max-w-2xl overflow-hidden rounded-t-2xl border border-steel-700 bg-steel-950 shadow-2xl shadow-steel-950/80;
+  }
+
+  .apex-workout-sheet-backdrop {
+    @apply fixed inset-0 z-40 bg-steel-950/70 backdrop-blur-sm;
+  }
+
+  .apex-switch-row {
+    @apply flex min-h-[58px] w-full items-center justify-between gap-3 rounded-lg border border-steel-700 bg-steel-900 px-4 py-3 text-left;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -91,16 +221,23 @@
   }
 }
 
-/* ApexLoad is portrait-only. The manifest's orientation lock only applies
-   once installed to a home screen — this is what actually enforces it in
-   every context, including a plain browser tab. max-height keeps this from
-   firing on a wide-but-short desktop window, which is landscape but isn't
-   a phone turned sideways. */
-.landscape-lock {
-  display: none;
-}
-@media (orientation: landscape) and (max-height: 500px) {
-  .landscape-lock {
-    display: flex;
+@media (orientation: landscape) and (max-height: 520px) {
+  .apex-rest-timer-inner {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .apex-rest-timer-message {
+    display: none;
+  }
+
+  .apex-rest-timer-main {
+    align-items: center;
+  }
+
+  .apex-rest-timer-actions button {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
   }
 }
+

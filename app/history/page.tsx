@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { formatIntervalSummary } from "@/lib/metrics";
+import BruceLeeQuote from "@/components/BruceLeeQuote";
 import type { IntervalData } from "@/lib/types";
 
 interface HistoryDay {
@@ -236,24 +237,23 @@ export default function HistoryPage() {
   }
 
   return (
-    <main className="min-h-screen px-5 pb-24 pt-8">
+    <main className="apex-page">
       <div className="flex items-center justify-between">
         <div>
-          <p className="font-mono text-xs uppercase tracking-widest text-copper-500">ApexLoad</p>
-          <h1 className="mt-1 font-display text-3xl font-extrabold text-chalk-100">History</h1>
+          <p className="apex-kicker">ApexLoad</p>
+          <h1 className="apex-title">History</h1>
         </div>
         <div className="flex items-center gap-3">
           <Link
             href="/workout/import"
-            className="rounded-lg border border-steel-600/60 bg-steel-900/40 px-3 py-1.5 font-mono text-xs text-chalk-300 backdrop-blur-md"
+            className="apex-chip"
           >
             + Add past workout
           </Link>
-          <Link href="/" className="font-mono text-xs text-chalk-500 underline">
-            Home
-          </Link>
         </div>
       </div>
+
+      <BruceLeeQuote className="mt-4" />
 
       {loading ? (
         <p className="mt-6 text-sm text-chalk-500">Loading…</p>
@@ -264,7 +264,7 @@ export default function HistoryPage() {
           {days.map((d) => (
             <li
               key={d.sessionId}
-              className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3"
+              className="apex-card"
             >
               {renamingId === d.sessionId ? (
                 <div className="flex gap-2">
@@ -273,17 +273,17 @@ export default function HistoryPage() {
                     value={renameValue}
                     onChange={(e) => setRenameValue(e.target.value)}
                     placeholder={d.muscleGroupName}
-                    className="flex-1 rounded-lg border border-steel-700 bg-steel-800 px-2 py-1 text-sm text-chalk-100"
+                    className="apex-input-compact flex-1"
                   />
                   <button
                     onClick={() => saveRename(d.sessionId)}
-                    className="rounded-lg bg-copper-500 px-3 py-1.5 text-xs font-semibold text-steel-950"
+                    className="rounded-lg bg-copper-500 px-3 py-2 text-xs font-semibold text-steel-950"
                   >
                     Save
                   </button>
                   <button
                     onClick={() => setRenamingId(null)}
-                    className="rounded-lg border border-steel-600 px-3 py-1.5 text-xs text-chalk-300"
+                    className="apex-secondary-button"
                   >
                     Cancel
                   </button>
@@ -294,7 +294,7 @@ export default function HistoryPage() {
                     onClick={() => toggleExpand(d.sessionId)}
                     className="flex-1 text-left"
                   >
-                    <p className="text-chalk-100">{d.name || d.muscleGroupName}</p>
+                    <p className="font-semibold text-chalk-100">{d.name || d.muscleGroupName}</p>
                     <p className="mt-0.5 font-mono text-xs text-chalk-500">
                       {new Date(d.startedAt).toLocaleDateString(undefined, {
                         weekday: "short",
@@ -329,18 +329,18 @@ export default function HistoryPage() {
                         onChange={(e) => setNotesEditValue(e.target.value)}
                         placeholder="How it felt, gym conditions, anything to remember…"
                         rows={3}
-                        className="w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100 outline-none focus:border-copper-500"
+                        className="apex-input-compact w-full"
                       />
                       <div className="flex gap-2">
                         <button
                           onClick={() => saveNote(d.sessionId)}
-                          className="rounded-lg bg-copper-500 px-3 py-1.5 text-xs font-semibold text-steel-950"
+                          className="rounded-lg bg-copper-500 px-3 py-2 text-xs font-semibold text-steel-950"
                         >
                           Save
                         </button>
                         <button
                           onClick={() => setNotesEditId(null)}
-                          className="rounded-lg border border-steel-600 px-3 py-1.5 text-xs text-chalk-300"
+                          className="apex-secondary-button"
                         >
                           Cancel
                         </button>
@@ -413,28 +413,28 @@ export default function HistoryPage() {
                 {canResume(d) && (
                   <Link
                     href={`/workout/${d.sessionId}`}
-                    className="rounded-lg bg-tungsten-500 px-3 py-1.5 text-xs font-semibold text-steel-950"
+                    className="rounded-lg bg-tungsten-500 px-3 py-2 text-xs font-semibold text-steel-950"
                   >
                     Resume
                   </Link>
                 )}
                 <Link
                   href={`/workout/edit/${d.sessionId}`}
-                  className="rounded-lg border border-steel-600 px-3 py-1.5 text-xs text-chalk-300"
+                  className="apex-secondary-button"
                 >
                   Edit
                 </Link>
                 <button
                   onClick={() => repeatWorkout(d.sessionId)}
                   disabled={repeatingId === d.sessionId}
-                  className="rounded-lg bg-copper-500 px-3 py-1.5 text-xs font-semibold text-steel-950 disabled:opacity-50"
+                  className="rounded-lg bg-copper-500 px-3 py-2 text-xs font-semibold text-steel-950 disabled:opacity-50"
                 >
                   {repeatingId === d.sessionId ? "Starting…" : "Repeat"}
                 </button>
                 <button
                   onClick={() => deleteDay(d.sessionId)}
                   disabled={deletingId === d.sessionId}
-                  className="rounded-lg border border-copper-600 px-3 py-1.5 text-xs text-copper-400 disabled:opacity-50"
+                  className="apex-danger-button disabled:opacity-50"
                 >
                   {deletingId === d.sessionId ? "Deleting…" : "Delete"}
                 </button>

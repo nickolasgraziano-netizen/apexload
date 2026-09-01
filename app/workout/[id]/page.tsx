@@ -31,6 +31,8 @@ interface SetDraft {
   variant: TrainingVariant;
 }
 
+type DraftNumberField = "reps" | "weight" | "rightReps" | "rightWeight";
+
 interface SupersetGroupView {
   id: string;
   exerciseIds: string[]; // ordered by position
@@ -65,6 +67,7 @@ export default function ActiveWorkoutPage() {
   const [drafts, setDrafts] = useState<Record<string, SetDraft>>({});
   const [showTimer, setShowTimer] = useState(false);
   const [restKey, setRestKey] = useState(0); // bump to force a fresh countdown, even mid-rest
+  const [restSnapshot, setRestSnapshot] = useState<{ remaining: number; pct: number } | null>(null);
   // Drives the "what's next" quick-action panel — shown either right after
   // logging a set, or when navigating to an exercise already logged this
   // session (so you see a summary + actions instead of a blank entry form).
@@ -78,6 +81,7 @@ export default function ActiveWorkoutPage() {
   const [pickerMode, setPickerMode] = useState<"add" | "switch" | "superset">("add");
   const [catalog, setCatalog] = useState<(Exercise & { muscle_groups: { name: string } | null })[]>([]);
   const [pickerQuery, setPickerQuery] = useState("");
+  const [pickerGroupId, setPickerGroupId] = useState("");
   // Which half of the picker is showing — browsing always wins by default
   // since it's the far more common action.
   const [pickerTab, setPickerTab] = useState<"browse" | "custom">("browse");
@@ -165,6 +169,60 @@ export default function ActiveWorkoutPage() {
       ...prev,
       [activeExercise.id]: { ...(prev[activeExercise.id] || DEFAULT_DRAFT), ...patch },
     }));
+  }
+
+  function adjustDraftNumber(field: DraftNumberField, delta: number, min: number) {
+    if (!activeExercise) return;
+    const currentDraft = drafts[activeExercise.id] || DEFAULT_DRAFT;
+    updateDraft({ [field]: Math.max(min, currentDraft[field] + delta) });
+  }
+
+  function renderDraftStepper(
+    label: string,
+    field: DraftNumberField,
+    value: number,
+    step: number,
+    min: number,
+    displayZeroAsEmpty = false
+  ) {
+    const buttonClass =
+      "flex min-h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-steel-600 bg-steel-950/40 text-2xl font-semibold leading-none text-chalk-100 active:border-copper-500 active:bg-copper-500 active:text-steel-950";
+
+    return (
+      <label className="flex-1">
+        <span className="font-mono text-xs text-chalk-500">{label}</span>
+        <div className="mt-1 flex items-center gap-2 rounded-lg border border-steel-700 bg-steel-800 p-2">
+          <button
+            type="button"
+            onClick={() => adjustDraftNumber(field, -step, min)}
+            aria-label={`Decrease ${label.toLowerCase()} by ${step}`}
+            className={buttonClass}
+          >
+            -
+          </button>
+          <input
+            type="number"
+            min={min}
+            step={step}
+            inputMode="numeric"
+            value={displayZeroAsEmpty && value === 0 ? "" : value}
+            onChange={(e) =>
+              updateDraft({ [field]: e.target.value === "" ? min : Number(e.target.value) })
+            }
+            onFocus={(e) => e.target.select()}
+            className="min-w-0 flex-1 border-0 bg-transparent px-1 py-2 text-center font-display text-4xl font-extrabold text-chalk-100 outline-none"
+          />
+          <button
+            type="button"
+            onClick={() => adjustDraftNumber(field, step, min)}
+            aria-label={`Increase ${label.toLowerCase()} by ${step}`}
+            className={buttonClass}
+          >
+            +
+          </button>
+        </div>
+      </label>
+    );
   }
 
   function updateTabScrollState() {
@@ -809,6 +867,7 @@ export default function ActiveWorkoutPage() {
       }
       setShowPicker(false);
       setPickerQuery("");
+      setPickerGroupId("");
       setPickerMode("add");
       return;
     }
@@ -860,6 +919,7 @@ export default function ActiveWorkoutPage() {
     setJustLoggedSet(loggedExerciseIds.includes(ex.id));
     setShowPicker(false);
     setPickerQuery("");
+    setPickerGroupId("");
     setPickerMode("add");
     setPersistToTemplate(false);
   }
@@ -933,8 +993,10 @@ export default function ActiveWorkoutPage() {
     addExerciseToSession(newExercise as Exercise);
   }
 
-  const filteredCatalog = catalog.filter((ex) =>
-    ex.name.toLowerCase().includes(pickerQuery.toLowerCase())
+  const filteredCatalog = catalog.filter(
+    (ex) =>
+      ex.name.toLowerCase().includes(pickerQuery.toLowerCase()) &&
+      (!pickerGroupId || ex.muscle_group_id === pickerGroupId)
   );
 
   function toggleGroupingSelection(exerciseId: string) {
@@ -955,32 +1017,32 @@ export default function ActiveWorkoutPage() {
   }
 
   return (
-    <main className="min-h-screen px-5 pb-40 pt-6">
+    <main className="apex-page-live pb-64">
       <div className="flex items-center justify-end gap-2">
         <button
           onClick={() => setShowNotes((v) => !v)}
-          className="rounded-lg border border-steel-600 px-3 py-1.5 font-mono text-xs text-chalk-300"
+          className="apex-secondary-button"
         >
           {notes ? "Edit note" : "Add note"}
         </button>
         {plannedExercises.length > 0 && (
           <button
             onClick={() => setShowSaveTemplate(true)}
-            className="rounded-lg border border-steel-600 px-3 py-1.5 font-mono text-xs text-chalk-300"
+            className="apex-secondary-button"
           >
             Save as template
           </button>
         )}
         <button
           onClick={requestEndWorkout}
-          className="rounded-lg border border-copper-500/60 px-3 py-1.5 font-mono text-xs text-copper-400"
+          className="apex-danger-button"
         >
           End workout
         </button>
       </div>
 
       {showEndPrompt && (
-        <div className="mt-3 rounded-xl border border-tungsten-500 bg-tungsten-600/10 p-4">
+        <div className="apex-card-live mt-3">
           {outstandingIds.length > 0 && (
             <>
               <p className="text-sm text-tungsten-400">
@@ -1032,8 +1094,8 @@ export default function ActiveWorkoutPage() {
       )}
 
       {showNotes && (
-        <div className="mt-3 rounded-xl border border-steel-700 bg-steel-900 p-4">
-          <p className="font-mono text-xs uppercase tracking-widest text-chalk-500">Notes</p>
+        <div className="apex-card mt-3">
+          <p className="apex-section-title">Notes</p>
           <textarea
             autoFocus
             value={notes}
@@ -1041,7 +1103,7 @@ export default function ActiveWorkoutPage() {
             onBlur={saveNotes}
             placeholder="How it felt, gym conditions, anything to remember…"
             rows={3}
-            className="mt-2 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100 outline-none focus:border-copper-500"
+            className="apex-input-compact mt-2 w-full"
           />
           <button
             onClick={() => {
@@ -1056,14 +1118,14 @@ export default function ActiveWorkoutPage() {
       )}
 
       {templateSaved && (
-        <div className="mt-3 rounded-xl border border-tungsten-500 bg-tungsten-600/10 px-4 py-3">
+        <div className="apex-card-live mt-3">
           <p className="text-sm text-tungsten-400">Saved as a template — find it on Home next time.</p>
         </div>
       )}
 
       {showSaveTemplate && (
-        <div className="mt-3 rounded-xl border border-steel-700 bg-steel-900 p-4">
-          <p className="font-mono text-xs uppercase tracking-widest text-chalk-500">
+        <div className="apex-card mt-3">
+          <p className="apex-section-title">
             Name this template
           </p>
           <input
@@ -1071,14 +1133,14 @@ export default function ActiveWorkoutPage() {
             value={templateName}
             onChange={(e) => setTemplateName(e.target.value)}
             placeholder="e.g. Push Day"
-            className="mt-2 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100 outline-none focus:border-copper-500"
+            className="apex-input-compact mt-2 w-full"
           />
           <textarea
             value={templateNotes}
             onChange={(e) => setTemplateNotes(e.target.value)}
             placeholder="Notes for this template (optional)"
             rows={2}
-            className="mt-2 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100 outline-none focus:border-copper-500"
+            className="apex-input-compact mt-2 w-full"
           />
           <div className="mt-3 flex gap-2">
             <button
@@ -1094,7 +1156,7 @@ export default function ActiveWorkoutPage() {
                 setTemplateName("");
                 setTemplateNotes("");
               }}
-              className="rounded-lg border border-steel-600 px-3 py-1.5 text-xs text-chalk-300"
+              className="apex-secondary-button"
             >
               Cancel
             </button>
@@ -1117,7 +1179,7 @@ export default function ActiveWorkoutPage() {
               return (
                 <div
                   key={ex.id}
-                  className={`flex shrink-0 snap-start items-center rounded-full text-xs ${
+                  className={`flex min-h-[44px] shrink-0 snap-start items-center rounded-lg text-xs font-semibold ${
                     groupingMode
                       ? selected
                         ? "bg-tungsten-500 text-steel-950"
@@ -1135,7 +1197,7 @@ export default function ActiveWorkoutPage() {
                       }
                       goToExercise(i);
                     }}
-                    className={`py-1.5 pl-3 ${removable ? "pr-1" : "pr-3"}`}
+                    className={`py-2 pl-3 ${removable ? "pr-1" : "pr-3"}`}
                   >
                     {inGroup && !groupingMode && "⚡ "}
                     {skippedIds.includes(ex.id) && "⏭ "}
@@ -1145,7 +1207,7 @@ export default function ActiveWorkoutPage() {
                     <button
                       onClick={() => removeExerciseFromSession(ex)}
                       aria-label={`Remove ${ex.name}`}
-                      className="py-1.5 pl-1 pr-2.5 opacity-70"
+                      className="py-2 pl-1 pr-2.5 opacity-70"
                     >
                       ✕
                     </button>
@@ -1155,7 +1217,7 @@ export default function ActiveWorkoutPage() {
             })}
             <button
               onClick={() => openPicker("add")}
-              className="shrink-0 snap-start rounded-full border border-dashed border-steel-600 px-3 py-1.5 text-xs text-chalk-300"
+              className="shrink-0 snap-start rounded-lg border border-dashed border-steel-600 px-3 py-2 text-xs font-semibold text-chalk-300"
             >
               + Exercise
             </button>
@@ -1164,7 +1226,7 @@ export default function ActiveWorkoutPage() {
                 setGroupingMode((v) => !v);
                 setGroupingSelection([]);
               }}
-              className={`shrink-0 snap-start rounded-full px-3 py-1.5 text-xs ${
+              className={`shrink-0 snap-start rounded-lg px-3 py-2 text-xs font-semibold ${
                 groupingMode
                   ? "bg-tungsten-500 text-steel-950"
                   : "border border-dashed border-steel-600 text-chalk-300"
@@ -1183,7 +1245,7 @@ export default function ActiveWorkoutPage() {
       )}
 
       {groupingMode && (
-        <div className="mt-2 flex items-center justify-between rounded-xl border border-tungsten-500 bg-tungsten-600/10 px-4 py-3">
+        <div className="apex-card-live mt-2 flex items-center justify-between gap-3">
           <p className="text-sm text-tungsten-400">
             {groupingSelection.length < 2
               ? "Pick 2-3 exercises to alternate between"
@@ -1192,7 +1254,7 @@ export default function ActiveWorkoutPage() {
           <button
             onClick={confirmSuperset}
             disabled={groupingSelection.length < 2}
-            className="rounded-lg bg-tungsten-500 px-3 py-1.5 text-xs font-semibold text-steel-950 disabled:opacity-40"
+            className="rounded-lg bg-tungsten-500 px-3 py-2 text-xs font-semibold text-steel-950 disabled:opacity-40"
           >
             Create superset
           </button>
@@ -1202,177 +1264,260 @@ export default function ActiveWorkoutPage() {
       {plannedExercises.length === 0 && (
         <button
           onClick={() => openPicker("add")}
-          className="mt-3 w-full rounded-xl border border-dashed border-steel-600 py-3 text-sm text-chalk-300"
+          className="mt-3 w-full rounded-lg border border-dashed border-steel-600 py-4 text-sm font-semibold text-chalk-300"
         >
           + Add an exercise
         </button>
       )}
 
       {showPicker && (
-        <div className="mt-3 rounded-xl border border-steel-700 bg-steel-900 p-3">
-          <div className="flex items-center justify-between">
-            <p className="font-mono text-xs uppercase tracking-widest text-chalk-500">
-              {pickerMode === "switch"
-                ? "Switch exercise"
-                : pickerMode === "superset"
-                  ? "Pick an exercise to superset with"
-                  : "Add an exercise"}
-            </p>
-            <button onClick={() => setShowPicker(false)} className="text-xs text-chalk-500">
-              Close
-            </button>
-          </div>
+        <>
+          <button
+            aria-label="Close exercise picker"
+            onClick={() => setShowPicker(false)}
+            className="apex-workout-sheet-backdrop"
+          />
+          <div className="apex-workout-sheet">
+            <div className="flex items-start justify-between gap-4 border-b border-steel-700 px-5 py-4">
+              <div>
+                <p className="apex-kicker">
+                  {pickerMode === "switch"
+                    ? "Switch exercise"
+                    : pickerMode === "superset"
+                      ? "Create superset"
+                      : "Add exercise"}
+                </p>
+                <h2 className="mt-1 font-display text-3xl font-extrabold uppercase leading-none text-chalk-100">
+                  {pickerMode === "switch"
+                    ? "Choose next move"
+                    : pickerMode === "superset"
+                      ? "Pair with current"
+                      : "Build your plan"}
+                </h2>
+              </div>
+              <button onClick={() => setShowPicker(false)} className="apex-secondary-button">
+                Close
+              </button>
+            </div>
 
-          <div className="mt-3 flex gap-2">
-            <button
-              onClick={() => setPickerTab("browse")}
-              className={`flex-1 rounded-lg py-2 font-mono text-xs uppercase tracking-widest ${
-                pickerTab === "browse"
-                  ? "bg-copper-500 text-steel-950"
-                  : "border border-steel-600 text-chalk-300"
-              }`}
-            >
-              Browse catalog
-            </button>
-            <button
-              onClick={() => setPickerTab("custom")}
-              className={`flex-1 rounded-lg py-2 font-mono text-xs uppercase tracking-widest ${
-                pickerTab === "custom"
-                  ? "bg-tungsten-500 text-steel-950"
-                  : "border border-steel-600 text-chalk-300"
-              }`}
-            >
-              Create custom
-            </button>
-          </div>
+            <div className="max-h-[calc(86vh-96px)] overflow-y-auto px-5 pb-6 pt-4">
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setPickerTab("browse")}
+                  className={`rounded-lg py-3 font-mono text-xs uppercase tracking-widest ${
+                    pickerTab === "browse"
+                      ? "bg-copper-500 text-steel-950"
+                      : "border border-steel-600 text-chalk-300"
+                  }`}
+                >
+                  Browse catalog
+                </button>
+                <button
+                  onClick={() => setPickerTab("custom")}
+                  className={`rounded-lg py-3 font-mono text-xs uppercase tracking-widest ${
+                    pickerTab === "custom"
+                      ? "bg-tungsten-500 text-steel-950"
+                      : "border border-steel-600 text-chalk-300"
+                  }`}
+                >
+                  Create custom
+                </button>
+              </div>
 
-          {pickerMode === "add" && template && (
-            <label className="mt-3 flex items-center gap-2 text-xs text-chalk-300">
-              <input
-                type="checkbox"
-                checked={persistToTemplate}
-                onChange={(e) => setPersistToTemplate(e.target.checked)}
-              />
-              Also add to "{template.name}" so it's there next time
-            </label>
-          )}
+              {pickerMode === "add" && template && (
+                <label className="mt-3 flex items-center gap-2 rounded-lg border border-steel-700 bg-steel-900 px-3 py-2 text-xs text-chalk-300">
+                  <input
+                    type="checkbox"
+                    checked={persistToTemplate}
+                    onChange={(e) => setPersistToTemplate(e.target.checked)}
+                  />
+                  Also add to "{template.name}" so it's there next time
+                </label>
+              )}
 
-          {pickerTab === "browse" ? (
-            <>
-              {plannedExercises.length > 1 && (
-                <div className="mt-3">
-                  <p className="font-mono text-[10px] uppercase tracking-widest text-chalk-500">
-                    Today's workout
-                  </p>
-                  <div className="mt-1 flex flex-wrap gap-2">
-                    {plannedExercises.map((ex, i) => {
-                      if (i === activeIndex) return null;
-                      if (
-                        pickerMode === "superset" &&
-                        supersetGroups.some((g) => g.exerciseIds.includes(ex.id))
-                      ) {
-                        return null;
-                      }
-                      return (
-                        <button
-                          key={ex.id}
-                          onClick={() => {
-                            if (pickerMode === "superset") {
-                              if (activeExercise) {
-                                createSupersetGroup([activeExercise.id, ex.id]);
-                                // Jump straight to the paired exercise, same
-                                // as every later cycle via "Next in superset".
-                                setActiveIndex(i);
-                                setFreshLog(false);
-                                setJustLoggedSet(loggedExerciseIds.includes(ex.id));
-                              }
-                              setShowPicker(false);
-                              setPickerMode("add");
-                              return;
-                            }
-                            goToExercise(i);
-                            setShowPicker(false);
-                          }}
-                          className="rounded-full border border-steel-600 px-3 py-1.5 text-xs text-chalk-300"
-                        >
-                          {ex.name}
-                        </button>
-                      );
-                    })}
+              {showTimer && restSnapshot && (
+                <div className="mt-3 rounded-lg border border-tungsten-500/40 bg-tungsten-600/10 px-3 py-2">
+                  <div className="mb-2 h-1 w-full overflow-hidden rounded-full bg-steel-700">
+                    <div
+                      className="h-full bg-tungsten-500 transition-all duration-300"
+                      style={{ width: `${restSnapshot.pct}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-mono text-[10px] uppercase tracking-widest text-tungsten-400">
+                      Resting
+                    </p>
+                    <p className="font-display text-3xl font-extrabold leading-none tabular-nums text-chalk-100">
+                      {restSnapshot.remaining === 0
+                        ? "Go"
+                        : `0:${String(restSnapshot.remaining).padStart(2, "0")}`}
+                    </p>
                   </div>
                 </div>
               )}
 
-              <input
-                autoFocus
-                placeholder="Search all exercises…"
-                value={pickerQuery}
-                onChange={(e) => setPickerQuery(e.target.value)}
-                className="mt-3 w-full rounded-lg border border-steel-500 bg-steel-800 px-3 py-2 text-sm text-chalk-100 outline-none placeholder:text-chalk-500 focus:border-copper-500"
-              />
-              <ul className="mt-2 flex max-h-60 flex-col gap-1 overflow-y-auto">
-                {filteredCatalog.map((ex) => (
-                  <li key={ex.id}>
-                    <button
-                      onClick={() => addExerciseToSession(ex)}
-                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-chalk-100 hover:bg-steel-800"
-                    >
-                      <span>{ex.name}</span>
-                      <span className="font-mono text-[10px] uppercase text-chalk-500">
-                        {ex.muscle_groups?.name}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-                {catalog.length === 0 && (
-                  <p className="px-3 py-2 text-sm text-chalk-500">Loading…</p>
-                )}
-              </ul>
-            </>
-          ) : (
-            <div className="mt-3 flex flex-col gap-2">
-              <input
-                autoFocus
-                placeholder="Exercise name"
-                value={newExerciseName}
-                onChange={(e) => setNewExerciseName(e.target.value)}
-                className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
-              />
-              <MuscleGroupSelect
-                groups={groups}
-                value={newExerciseGroupId}
-                onChange={setNewExerciseGroupId}
-                onGroupCreated={(g) => setGroups((prev) => [...prev, g])}
-                userId={userId}
-                className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
-              />
-              <label className="flex items-center gap-2 text-sm text-chalk-300">
-                <input
-                  type="checkbox"
-                  checked={newExerciseIsUnilateral}
-                  onChange={(e) => setNewExerciseIsUnilateral(e.target.checked)}
-                />
-                Unilateral (train each side separately)
-              </label>
-              <label className="flex items-center gap-2 text-sm text-chalk-300">
-                <input
-                  type="checkbox"
-                  checked={newExerciseIsCardio}
-                  onChange={(e) => setNewExerciseIsCardio(e.target.checked)}
-                />
-                Cardio (logged by duration, not sets)
-              </label>
-              {newExerciseError && <p className="text-xs text-copper-400">{newExerciseError}</p>}
-              <button
-                onClick={addCustomExerciseAndUse}
-                disabled={creatingExercise || !newExerciseName.trim() || !newExerciseGroupId}
-                className="rounded-lg bg-copper-500 py-2 text-sm font-semibold text-steel-950 disabled:opacity-50"
-              >
-                {creatingExercise ? "Adding…" : "Add and use"}
-              </button>
+              {pickerTab === "browse" ? (
+                <>
+                  {plannedExercises.length > 1 && (
+                    <section className="mt-4">
+                      <p className="apex-section-title">Today's workout</p>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                        {plannedExercises.map((ex, i) => {
+                          const current = i === activeIndex;
+                          const blocked =
+                            pickerMode === "superset" &&
+                            supersetGroups.some((g) => g.exerciseIds.includes(ex.id));
+                          if (current || blocked) return null;
+                          return (
+                            <button
+                              key={ex.id}
+                              onClick={() => {
+                                if (pickerMode === "superset") {
+                                  if (activeExercise) {
+                                    createSupersetGroup([activeExercise.id, ex.id]);
+                                    setActiveIndex(i);
+                                    setFreshLog(false);
+                                    setJustLoggedSet(loggedExerciseIds.includes(ex.id));
+                                  }
+                                  setShowPicker(false);
+                                  setPickerMode("add");
+                                  return;
+                                }
+                                goToExercise(i);
+                                setShowPicker(false);
+                              }}
+                              className="apex-switch-row"
+                            >
+                              <span>
+                                <span className="block font-semibold text-chalk-100">{ex.name}</span>
+                                <span className="mt-0.5 block font-mono text-[10px] uppercase tracking-widest text-chalk-500">
+                                  {loggedExerciseIds.includes(ex.id)
+                                    ? "Logged today"
+                                    : skippedIds.includes(ex.id)
+                                      ? "Skipped"
+                                      : "Planned"}
+                                </span>
+                              </span>
+                              <span className="font-mono text-xs text-copper-400">→</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  )}
+
+                  <section className="mt-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="apex-section-title">All exercises</p>
+                      <span className="apex-chip">{filteredCatalog.length} results</span>
+                    </div>
+                    <input
+                      autoFocus
+                      placeholder="Search all exercises..."
+                      value={pickerQuery}
+                      onChange={(e) => setPickerQuery(e.target.value)}
+                      className="apex-input mt-2"
+                    />
+                    <div className="mt-2 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                      <button
+                        type="button"
+                        onClick={() => setPickerGroupId("")}
+                        aria-pressed={pickerGroupId === ""}
+                        className={`shrink-0 rounded-full px-3 py-2 font-mono text-[10px] uppercase tracking-widest ${
+                          pickerGroupId === ""
+                            ? "bg-copper-500 text-steel-950"
+                            : "border border-steel-600 text-chalk-300"
+                        }`}
+                      >
+                        All
+                      </button>
+                      {groups.map((g) => (
+                        <button
+                          key={g.id}
+                          type="button"
+                          onClick={() => setPickerGroupId((current) => (current === g.id ? "" : g.id))}
+                          aria-pressed={pickerGroupId === g.id}
+                          className={`shrink-0 rounded-full px-3 py-2 font-mono text-[10px] uppercase tracking-widest ${
+                            pickerGroupId === g.id
+                              ? "bg-copper-500 text-steel-950"
+                              : "border border-steel-600 text-chalk-300"
+                          }`}
+                        >
+                          {g.name}
+                        </button>
+                      ))}
+                    </div>
+                    <ul className="mt-2 grid max-h-80 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+                      {filteredCatalog.map((ex) => (
+                        <li key={ex.id}>
+                          <button
+                            onClick={() => addExerciseToSession(ex)}
+                            className="apex-switch-row"
+                          >
+                            <span>
+                              <span className="block font-semibold text-chalk-100">{ex.name}</span>
+                              <span className="mt-0.5 block font-mono text-[10px] uppercase tracking-widest text-chalk-500">
+                                {ex.muscle_groups?.name}
+                              </span>
+                            </span>
+                            <span className="rounded-lg bg-copper-500 px-3 py-2 text-xs font-semibold text-steel-950">
+                              Add
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                      {catalog.length === 0 && (
+                        <p className="px-3 py-2 text-sm text-chalk-500">Loading…</p>
+                      )}
+                    </ul>
+                  </section>
+                </>
+              ) : (
+                <div className="mt-4 flex flex-col gap-3">
+                  <input
+                    autoFocus
+                    placeholder="Exercise name"
+                    value={newExerciseName}
+                    onChange={(e) => setNewExerciseName(e.target.value)}
+                    className="apex-input"
+                  />
+                  <MuscleGroupSelect
+                    groups={groups}
+                    value={newExerciseGroupId}
+                    onChange={setNewExerciseGroupId}
+                    onGroupCreated={(g) => setGroups((prev) => [...prev, g])}
+                    userId={userId}
+                    className="apex-input"
+                  />
+                  <label className="flex items-center gap-2 text-sm text-chalk-300">
+                    <input
+                      type="checkbox"
+                      checked={newExerciseIsUnilateral}
+                      onChange={(e) => setNewExerciseIsUnilateral(e.target.checked)}
+                    />
+                    Unilateral (train each side separately)
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-chalk-300">
+                    <input
+                      type="checkbox"
+                      checked={newExerciseIsCardio}
+                      onChange={(e) => setNewExerciseIsCardio(e.target.checked)}
+                    />
+                    Cardio (logged by duration, not sets)
+                  </label>
+                  {newExerciseError && <p className="text-xs text-copper-400">{newExerciseError}</p>}
+                  <button
+                    onClick={addCustomExerciseAndUse}
+                    disabled={creatingExercise || !newExerciseName.trim() || !newExerciseGroupId}
+                    className="rounded-lg bg-copper-500 py-4 text-sm font-semibold text-steel-950 disabled:opacity-50"
+                  >
+                    {creatingExercise ? "Adding…" : "Add and use"}
+                  </button>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </div>
+        </>
       )}
 
       {activeExercise && (
@@ -1386,13 +1531,13 @@ export default function ActiveWorkoutPage() {
                   className="h-12 w-12 shrink-0 rounded-lg object-cover"
                 />
               )}
-              <h1 className="font-display text-2xl font-extrabold text-chalk-100">
+              <h1 className="font-display text-4xl font-extrabold uppercase leading-none text-chalk-100">
                 {activeExercise.name}
               </h1>
             </div>
             <button
               onClick={() => openPicker("switch")}
-              className="shrink-0 rounded-lg border border-steel-600 px-3 py-1.5 font-mono text-xs text-chalk-300"
+              className="apex-secondary-button shrink-0"
             >
               Switch
             </button>
@@ -1415,7 +1560,7 @@ export default function ActiveWorkoutPage() {
           )}
 
           {activeExercise.is_cardio ? (
-            <div className="mt-4 rounded-xl border border-steel-700 bg-steel-900 p-4">
+            <div className="apex-card mt-4">
               {cardioEditing ? (
                 <>
                   <label className="flex flex-col gap-1">
@@ -1641,8 +1786,8 @@ export default function ActiveWorkoutPage() {
           ) : (
             <>
           {previousSessionSets.length > 0 && (
-            <div className="mt-2 rounded-xl border border-steel-700 bg-steel-900 p-3">
-              <p className="font-mono text-[10px] uppercase tracking-widest text-chalk-500">
+            <div className="apex-card mt-2">
+              <p className="apex-section-title">
                 Last time
               </p>
               <div className="mt-1 flex flex-wrap gap-2">
@@ -1691,7 +1836,7 @@ export default function ActiveWorkoutPage() {
           {suggestion?.reason === "increase" && (
             <button
               onClick={() => updateDraft({ weight: weight + 5 })}
-              className="mt-3 w-full rounded-xl border border-tungsten-500 bg-tungsten-600/10 py-2 text-sm text-tungsten-400"
+              className="apex-card-live mt-3 w-full py-3 text-sm font-semibold text-tungsten-400"
             >
               Hit target easy last time — bump +5 lb?
             </button>
@@ -1704,8 +1849,8 @@ export default function ActiveWorkoutPage() {
           </div>
 
           {justLoggedSet ? (
-            <div className="mt-4 rounded-xl border border-steel-700 bg-steel-900 p-4">
-              <p className="text-center font-body text-chalk-100">
+            <div className="apex-card mt-4">
+              <p className="text-center font-display text-2xl font-extrabold uppercase leading-none text-chalk-100">
                 {freshLog ? "Set logged. What's next?" : "Already logged today. What's next?"}
               </p>
               <div className="mt-3 flex flex-col gap-2">
@@ -1722,7 +1867,7 @@ export default function ActiveWorkoutPage() {
                           setActiveIndex(nextTabIndex);
                           setJustLoggedSet(false);
                         }}
-                        className="w-full rounded-xl bg-tungsten-500 py-3 font-semibold text-steel-950"
+                        className="w-full rounded-lg bg-tungsten-500 py-4 font-semibold text-steel-950"
                       >
                         Next in superset: {nextExercise.name}
                       </button>
@@ -1730,14 +1875,14 @@ export default function ActiveWorkoutPage() {
                   })()}
                 <button
                   onClick={() => setJustLoggedSet(false)}
-                  className="w-full rounded-xl bg-copper-500 py-3 font-semibold text-steel-950"
+                  className="w-full rounded-lg bg-copper-500 py-4 font-semibold text-steel-950"
                 >
                   Add another set
                 </button>
                 {plannedExercises.length > 1 && (
                   <button
                     onClick={goToNextExercise}
-                    className="w-full rounded-xl border border-steel-600 py-3 font-semibold text-chalk-300"
+                    className="w-full rounded-lg border border-steel-600 py-4 font-semibold text-chalk-300"
                   >
                     Next exercise
                   </button>
@@ -1747,7 +1892,7 @@ export default function ActiveWorkoutPage() {
                     setJustLoggedSet(false);
                     openPicker("switch");
                   }}
-                  className="w-full rounded-xl border border-steel-600 py-3 font-semibold text-chalk-300"
+                  className="w-full rounded-lg border border-steel-600 py-4 font-semibold text-chalk-300"
                 >
                   Switch exercise
                 </button>
@@ -1757,7 +1902,7 @@ export default function ActiveWorkoutPage() {
                       setJustLoggedSet(false);
                       openPicker("superset");
                     }}
-                    className="w-full rounded-xl border border-dashed border-tungsten-500 py-3 font-semibold text-tungsten-400"
+                    className="w-full rounded-lg border border-dashed border-tungsten-500 py-4 font-semibold text-tungsten-400"
                   >
                     ⚡ Superset with…
                   </button>
@@ -1765,98 +1910,42 @@ export default function ActiveWorkoutPage() {
                 {plannedExercises.length > 1 && (
                   <button
                     onClick={skipExercise}
-                    className="w-full rounded-xl border border-dashed border-steel-600 py-3 font-semibold text-chalk-500"
+                    className="w-full rounded-lg border border-dashed border-steel-600 py-4 font-semibold text-chalk-500"
                   >
                     Skip this exercise (machine unavailable)
                   </button>
                 )}
                 <button
                   onClick={() => router.push("/")}
-                  className="w-full rounded-xl border border-steel-600 py-3 font-semibold text-chalk-300"
+                  className="w-full rounded-lg border border-steel-600 py-4 font-semibold text-chalk-300"
                 >
                   Back to Home
                 </button>
               </div>
             </div>
           ) : (
-            <div className="mt-4 rounded-xl border border-steel-700 bg-steel-900 p-4">
+            <div className="apex-card mt-4">
               {activeExercise.is_unilateral ? (
                 <>
                   <p className="font-mono text-[10px] uppercase tracking-widest text-chalk-500">
                     Left
                   </p>
                   <div className="mt-1 flex gap-3">
-                    <label className="flex-1">
-                      <span className="font-mono text-xs text-chalk-500">Reps</span>
-                      <input
-                        type="number"
-                        value={reps}
-                        onChange={(e) => updateDraft({ reps: Number(e.target.value) })}
-                        onFocus={(e) => e.target.select()}
-                        className="mt-1 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
-                      />
-                    </label>
-                    <label className="flex-1">
-                      <span className="font-mono text-xs text-chalk-500">Weight ({"lb"})</span>
-                      <input
-                        type="number"
-                        value={weight === 0 ? "" : weight}
-                        onChange={(e) => updateDraft({ weight: e.target.value === "" ? 0 : Number(e.target.value) })}
-                        onFocus={(e) => e.target.select()}
-                        className="mt-1 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
-                      />
-                    </label>
+                    {renderDraftStepper("Reps", "reps", reps, 1, 1)}
+                    {renderDraftStepper("Weight (lb)", "weight", weight, 5, 0, true)}
                   </div>
                   <p className="mt-3 font-mono text-[10px] uppercase tracking-widest text-chalk-500">
                     Right
                   </p>
                   <div className="mt-1 flex gap-3">
-                    <label className="flex-1">
-                      <span className="font-mono text-xs text-chalk-500">Reps</span>
-                      <input
-                        type="number"
-                        value={rightReps}
-                        onChange={(e) => updateDraft({ rightReps: Number(e.target.value) })}
-                        onFocus={(e) => e.target.select()}
-                        className="mt-1 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
-                      />
-                    </label>
-                    <label className="flex-1">
-                      <span className="font-mono text-xs text-chalk-500">Weight ({"lb"})</span>
-                      <input
-                        type="number"
-                        value={rightWeight === 0 ? "" : rightWeight}
-                        onChange={(e) =>
-                          updateDraft({ rightWeight: e.target.value === "" ? 0 : Number(e.target.value) })
-                        }
-                        onFocus={(e) => e.target.select()}
-                        className="mt-1 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
-                      />
-                    </label>
+                    {renderDraftStepper("Reps", "rightReps", rightReps, 1, 1)}
+                    {renderDraftStepper("Weight (lb)", "rightWeight", rightWeight, 5, 0, true)}
                   </div>
                 </>
               ) : (
                 <div className="flex gap-3">
-                  <label className="flex-1">
-                    <span className="font-mono text-xs text-chalk-500">Reps</span>
-                    <input
-                      type="number"
-                      value={reps}
-                      onChange={(e) => updateDraft({ reps: Number(e.target.value) })}
-                      onFocus={(e) => e.target.select()}
-                      className="mt-1 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
-                    />
-                  </label>
-                  <label className="flex-1">
-                    <span className="font-mono text-xs text-chalk-500">Weight ({"lb"})</span>
-                    <input
-                      type="number"
-                      value={weight === 0 ? "" : weight}
-                      onChange={(e) => updateDraft({ weight: e.target.value === "" ? 0 : Number(e.target.value) })}
-                      onFocus={(e) => e.target.select()}
-                      className="mt-1 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-chalk-100"
-                    />
-                  </label>
+                  {renderDraftStepper("Reps", "reps", reps, 1, 1)}
+                  {renderDraftStepper("Weight (lb)", "weight", weight, 5, 0, true)}
                 </div>
               )}
               <div className="mt-3 flex gap-2">
@@ -1876,7 +1965,7 @@ export default function ActiveWorkoutPage() {
               </div>
               <button
                 onClick={logSet}
-                className="mt-3 w-full rounded-xl bg-copper-500 py-3 font-semibold text-steel-950"
+                className="mt-3 w-full rounded-lg bg-copper-500 py-4 font-semibold text-steel-950"
               >
                 Log set
               </button>
@@ -1892,7 +1981,12 @@ export default function ActiveWorkoutPage() {
           key={restKey}
           defaultSeconds={restSeconds}
           message={motivationMessage}
-          onDismiss={() => setShowTimer(false)}
+          hidden={showPicker}
+          onTick={setRestSnapshot}
+          onDismiss={() => {
+            setShowTimer(false);
+            setRestSnapshot(null);
+          }}
         />
       )}
 

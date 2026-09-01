@@ -5,6 +5,7 @@ import LogoutButton from "@/components/LogoutButton";
 import Greeting from "@/components/Greeting";
 import TemplateList from "@/components/TemplateList";
 import DismissSessionButton from "@/components/DismissSessionButton";
+import BruceLeeQuote from "@/components/BruceLeeQuote";
 import type { OrderedMuscleGroup, WorkoutSession, WorkoutTemplate } from "@/lib/types";
 import Link from "next/link";
 
@@ -100,33 +101,34 @@ export default async function DashboardPage() {
   });
 
   return (
-    <main className="relative min-h-screen overflow-hidden px-5 pb-24 pt-8">
+    <main className="apex-page relative overflow-hidden">
       <div
-        className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-cover bg-top"
+        className="pointer-events-none absolute inset-x-0 top-0 h-[28rem] bg-cover"
         style={{
           backgroundImage:
-            "linear-gradient(to bottom, rgb(var(--color-steel-950) / 0.1), rgb(var(--color-steel-950) / 0.55) 55%, rgb(var(--color-steel-950)) 100%), url('/home-bg.jpg')",
+            "linear-gradient(to bottom, rgb(var(--color-steel-950) / 0.04), rgb(var(--color-steel-950) / 0.26) 38%, rgb(var(--color-steel-950) / 0.72) 72%, rgb(var(--color-steel-950)) 100%), linear-gradient(to right, rgb(var(--color-steel-950) / 0.68), rgb(var(--color-steel-950) / 0.16) 54%, rgb(var(--color-steel-950) / 0.04)), url('/home-bg.jpg')",
+          backgroundPosition: "58% 34%",
         }}
       />
       <div className="relative">
-      <header className="mb-8 flex flex-col gap-3">
+      <header className="mb-7 flex flex-col gap-4 pt-1">
         {user && <Greeting userId={user.id} displayName={profile?.display_name ?? null} message={message} />}
         <div className="flex flex-wrap gap-2">
           <Link
             href="/progress"
-            className="rounded-lg border border-steel-600/60 bg-steel-900/40 px-3 py-1.5 font-mono text-xs text-chalk-300 backdrop-blur-md"
+            className="apex-chip"
           >
             Progress
           </Link>
           <Link
             href="/history"
-            className="rounded-lg border border-steel-600/60 bg-steel-900/40 px-3 py-1.5 font-mono text-xs text-chalk-300 backdrop-blur-md"
+            className="apex-chip"
           >
             History
           </Link>
           <Link
             href="/exercises"
-            className="rounded-lg border border-steel-600/60 bg-steel-900/40 px-3 py-1.5 font-mono text-xs text-chalk-300 backdrop-blur-md"
+            className="apex-chip"
           >
             Catalog
           </Link>
@@ -134,51 +136,56 @@ export default async function DashboardPage() {
         </div>
       </header>
 
-      <section className="flex flex-col gap-2">
+      <section className="mt-28">
         <Link
           href="/workout/new"
-          className="flex items-center justify-between rounded-xl border border-steel-700/60 bg-steel-900/60 px-4 py-3 backdrop-blur-md"
+          className="apex-action-primary"
         >
           <div>
-            <p className="text-chalk-100">Start a new workout</p>
-            <p className="mt-0.5 text-xs text-chalk-500">
+            <p>Start a new workout</p>
+            <p className="mt-0.5 text-xs font-normal text-steel-800">
               Build it fresh, or reuse one you've done before
             </p>
           </div>
-          <span className="font-mono text-xs text-copper-400">→</span>
+          <span className="font-mono text-xs">→</span>
         </Link>
+      </section>
+
+      <section className="mt-3 flex flex-col gap-2">
         <Link
           href="/history"
-          className="flex items-center justify-between rounded-xl border border-steel-700/60 bg-steel-900/60 px-4 py-3 backdrop-blur-md"
+          className="apex-action"
         >
           <div>
-            <p className="text-chalk-100">Repeat a past workout</p>
+            <p className="font-semibold text-chalk-100">Repeat a past workout</p>
             <p className="mt-0.5 text-xs text-chalk-500">Pick any day from your history</p>
           </div>
           <span className="font-mono text-xs text-copper-400">→</span>
         </Link>
         <Link
           href="/workout/import"
-          className="flex items-center justify-between rounded-xl border border-steel-700/60 bg-steel-900/60 px-4 py-3 backdrop-blur-md"
+          className="apex-action"
         >
           <div>
-            <p className="text-chalk-100">Log past workouts</p>
+            <p className="font-semibold text-chalk-100">Log past workouts</p>
             <p className="mt-0.5 text-xs text-chalk-500">From your log book — by photo or typed in</p>
           </div>
           <span className="font-mono text-xs text-copper-400">→</span>
         </Link>
       </section>
 
+      <BruceLeeQuote className="mt-4 backdrop-blur-md" />
+
       {/* Interrupted workouts — pick back up right where you left off */}
       {openSessions && openSessions.length > 0 && (
-        <section className="mt-6 flex flex-col gap-2">
-          <h3 className="font-mono text-xs uppercase tracking-widest text-tungsten-400">
+        <section className="apex-section flex flex-col gap-2">
+          <h3 className="apex-section-title text-tungsten-400">
             Resume workout
           </h3>
           {openSessions.map((s: any) => (
             <div
               key={s.id}
-              className="flex items-center justify-between rounded-xl border border-tungsten-500/60 bg-tungsten-600/10 px-4 py-3 backdrop-blur-md"
+              className="apex-card-live flex items-center justify-between gap-3 backdrop-blur-md"
             >
               <Link href={`/workout/${s.id}`} className="flex-1">
                 <p className="text-chalk-100">
@@ -207,13 +214,13 @@ export default async function DashboardPage() {
       {user && <TemplateList templates={(templates ?? []) as WorkoutTemplate[]} userId={user.id} />}
 
       {/* Last session lookback */}
-      <section className="mt-6">
-        <h3 className="font-mono text-xs uppercase tracking-widest text-chalk-500">
+      <section className="apex-section">
+        <h3 className="apex-section-title">
           Last session
         </h3>
         {lastSession ? (
-          <div className="mt-2 rounded-2xl border border-steel-700/60 bg-steel-900/60 p-4 backdrop-blur-md">
-            <p className="font-body text-chalk-100">
+          <div className="apex-card-soft mt-2 backdrop-blur-md">
+            <p className="font-semibold text-chalk-100">
               {muscleGroups.find((g) => g.id === (lastSession as WorkoutSession).muscle_group_id)
                 ?.name ?? "Unknown group"}
             </p>

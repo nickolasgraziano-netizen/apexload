@@ -17,31 +17,94 @@ export default function SetRow({ set, onUpdate, onDelete }: Props) {
   const [weight, setWeight] = useState(set.weight ?? 0);
   const [difficulty, setDifficulty] = useState<SetDifficulty | null>(set.difficulty);
 
+  function adjustReps(delta: number) {
+    setReps((current) => Math.max(1, current + delta));
+  }
+
+  function adjustWeight(delta: number) {
+    setWeight((current) => Math.max(0, current + delta));
+  }
+
   function save() {
     onUpdate(set.id, { actual_reps: reps, weight, difficulty });
     setEditing(false);
   }
 
+  function renderStepper({
+    label,
+    value,
+    step,
+    min,
+    onAdjust,
+    onChange,
+    displayZeroAsEmpty = false,
+  }: {
+    label: string;
+    value: number;
+    step: number;
+    min: number;
+    onAdjust: (delta: number) => void;
+    onChange: (value: number) => void;
+    displayZeroAsEmpty?: boolean;
+  }) {
+    return (
+      <label className="flex-1">
+        <span className="font-mono text-[10px] uppercase tracking-widest text-chalk-500">
+          {label}
+        </span>
+        <div className="mt-1 flex items-center gap-2 rounded-lg border border-steel-700 bg-steel-800 p-2">
+          <button
+            type="button"
+            onClick={() => onAdjust(-step)}
+            aria-label={`Decrease ${label.toLowerCase()} by ${step}`}
+            className="flex min-h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-steel-600 bg-steel-950/40 text-2xl font-semibold leading-none text-chalk-100 active:border-copper-500 active:bg-copper-500 active:text-steel-950"
+          >
+            -
+          </button>
+          <input
+            type="number"
+            min={min}
+            step={step}
+            inputMode="numeric"
+            value={displayZeroAsEmpty && value === 0 ? "" : value}
+            onChange={(e) => onChange(e.target.value === "" ? min : Number(e.target.value))}
+            onFocus={(e) => e.target.select()}
+            className="min-w-0 flex-1 border-0 bg-transparent px-1 py-2 text-center font-display text-3xl font-extrabold text-chalk-100 outline-none"
+          />
+          <button
+            type="button"
+            onClick={() => onAdjust(step)}
+            aria-label={`Increase ${label.toLowerCase()} by ${step}`}
+            className="flex min-h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-steel-600 bg-steel-950/40 text-2xl font-semibold leading-none text-chalk-100 active:border-copper-500 active:bg-copper-500 active:text-steel-950"
+          >
+            +
+          </button>
+        </div>
+      </label>
+    );
+  }
+
   if (editing) {
     return (
-      <div className="rounded-xl border border-copper-500 bg-steel-900 p-3">
-        <div className="flex gap-2">
-          <input
-            type="number"
-            value={reps}
-            onChange={(e) => setReps(Number(e.target.value))}
-            onFocus={(e) => e.target.select()}
-            className="w-16 rounded-lg border border-steel-700 bg-steel-800 px-2 py-2 text-center text-chalk-100"
-          />
-          <span className="self-center text-chalk-500">reps @</span>
-          <input
-            type="number"
-            value={weight === 0 ? "" : weight}
-            onChange={(e) => setWeight(e.target.value === "" ? 0 : Number(e.target.value))}
-            onFocus={(e) => e.target.select()}
-            className="w-20 rounded-lg border border-steel-700 bg-steel-800 px-2 py-2 text-center text-chalk-100"
-          />
-          <span className="self-center text-chalk-500">{set.weight_unit}</span>
+      <div className="rounded-lg border border-copper-500 bg-steel-900 p-3">
+        <div className="flex gap-3">
+          {renderStepper({
+            label: "Reps",
+            value: reps,
+            step: 1,
+            min: 1,
+            onAdjust: adjustReps,
+            onChange: setReps,
+          })}
+          {renderStepper({
+            label: `Weight (${set.weight_unit})`,
+            value: weight,
+            step: 5,
+            min: 0,
+            onAdjust: adjustWeight,
+            onChange: setWeight,
+            displayZeroAsEmpty: true,
+          })}
         </div>
         <div className="mt-2 flex gap-2">
           {DIFFICULTIES.map((d) => (
@@ -61,19 +124,19 @@ export default function SetRow({ set, onUpdate, onDelete }: Props) {
         <div className="mt-3 flex gap-2">
           <button
             onClick={save}
-            className="flex-1 rounded-lg bg-copper-500 py-2 text-sm font-semibold text-steel-950"
+            className="flex-1 rounded-lg bg-copper-500 py-3 text-sm font-semibold text-steel-950"
           >
             Save
           </button>
           <button
             onClick={() => onDelete(set.id)}
-            className="rounded-lg border border-steel-600 px-3 py-2 text-sm text-chalk-300"
+            className="apex-secondary-button px-3 py-3 text-sm"
           >
             Delete
           </button>
           <button
             onClick={() => setEditing(false)}
-            className="rounded-lg border border-steel-600 px-3 py-2 text-sm text-chalk-300"
+            className="apex-secondary-button px-3 py-3 text-sm"
           >
             Cancel
           </button>
@@ -85,7 +148,7 @@ export default function SetRow({ set, onUpdate, onDelete }: Props) {
   return (
     <button
       onClick={() => setEditing(true)}
-      className="flex w-full items-center justify-between rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-left active:border-copper-500"
+      className="flex min-h-[58px] w-full items-center justify-between rounded-lg border border-steel-700 bg-steel-900 px-4 py-3 text-left active:border-copper-500"
     >
       <span className="font-mono text-xs text-chalk-500">Set {set.set_number}</span>
       <span className="font-body text-chalk-100">

@@ -7,6 +7,7 @@ import {
   computeSessionSummary,
 } from "@/lib/metrics";
 import { DifficultyChart } from "@/components/charts/MetricsCharts";
+import BruceLeeQuote from "@/components/BruceLeeQuote";
 
 export default async function WorkoutSummaryPage({ params }: { params: { id: string } }) {
   const sessionId = params.id;
@@ -55,16 +56,16 @@ export default async function WorkoutSummaryPage({ params }: { params: { id: str
     session.name || (session as any).muscle_groups?.name || (session as any).workout_templates?.name || "Workout";
 
   return (
-    <main className="min-h-screen px-5 pb-24 pt-8">
+    <main className="apex-page">
       <div>
-        <p className="font-mono text-xs uppercase tracking-widest text-copper-500">ApexLoad</p>
-        <h1 className="mt-1 font-display text-3xl font-extrabold text-chalk-100">Workout complete</h1>
-        <p className="mt-1 text-sm text-chalk-500">{workoutName}</p>
+        <p className="apex-kicker">ApexLoad</p>
+        <h1 className="apex-title">Workout complete</h1>
+        <p className="apex-copy">{workoutName}</p>
       </div>
 
       {summary.prCount > 0 && (
-        <section className="mt-6 rounded-2xl border border-tungsten-500 bg-tungsten-600/10 p-4">
-          <p className="font-mono text-xs uppercase tracking-widest text-tungsten-400">
+        <section className="apex-card-live mt-6">
+          <p className="apex-section-title text-tungsten-400">
             {summary.prCount === 1 ? "New PR" : `${summary.prCount} new PRs`}
           </p>
           <p className="mt-1 text-chalk-100">
@@ -77,31 +78,33 @@ export default async function WorkoutSummaryPage({ params }: { params: { id: str
       )}
 
       <div className="mt-6 grid grid-cols-3 gap-3">
-        <div className="rounded-xl border border-steel-700 bg-steel-900 p-3 text-center">
-          <p className="font-display text-2xl font-extrabold text-chalk-100">{durationMinutes}</p>
-          <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-chalk-500">Minutes</p>
+        <div className="apex-stat text-center">
+          <p className="apex-stat-value">{durationMinutes}</p>
+          <p className="apex-stat-label">Minutes</p>
         </div>
-        <div className="rounded-xl border border-steel-700 bg-steel-900 p-3 text-center">
-          <p className="font-display text-2xl font-extrabold text-chalk-100">{summary.totalSets}</p>
-          <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-chalk-500">Sets</p>
+        <div className="apex-stat text-center">
+          <p className="apex-stat-value">{summary.totalSets}</p>
+          <p className="apex-stat-label">Sets</p>
         </div>
-        <div className="rounded-xl border border-steel-700 bg-steel-900 p-3 text-center">
-          <p className="font-display text-2xl font-extrabold text-chalk-100">
+        <div className="apex-stat text-center">
+          <p className="apex-stat-value">
             {summary.totalVolume.toLocaleString()}
           </p>
-          <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-chalk-500">
+          <p className="apex-stat-label">
             Volume (lb)
           </p>
         </div>
       </div>
 
-      <section className="mt-6">
-        <h2 className="font-mono text-xs uppercase tracking-widest text-chalk-500">By exercise</h2>
+      <BruceLeeQuote className="mt-4" />
+
+      <section className="apex-section">
+        <h2 className="apex-section-title">By exercise</h2>
         <div className="mt-2 flex flex-col gap-2">
           {summary.exercises.map((e) => (
             <div
               key={e.exerciseId}
-              className="flex items-center justify-between rounded-xl border border-steel-700 bg-steel-900 px-4 py-3"
+              className="apex-card flex items-center justify-between gap-3"
             >
               <div>
                 <p className="text-chalk-100">
@@ -132,8 +135,8 @@ export default async function WorkoutSummaryPage({ params }: { params: { id: str
       </section>
 
       {difficultyBreakdown.length > 0 && (
-        <section className="mt-6 rounded-2xl border border-steel-700 bg-steel-900 p-4">
-          <h2 className="font-mono text-xs uppercase tracking-widest text-chalk-500">
+        <section className="apex-card apex-section">
+          <h2 className="apex-section-title">
             Effort calibration
           </h2>
           <div className="mt-2">
@@ -145,13 +148,13 @@ export default async function WorkoutSummaryPage({ params }: { params: { id: str
       <div className="mt-6 flex gap-2">
         <Link
           href="/"
-          className="flex-1 rounded-xl bg-copper-500 py-3 text-center font-semibold text-steel-950"
+          className="flex-1 rounded-lg bg-copper-500 py-3 text-center font-semibold text-steel-950"
         >
           Back to Home
         </Link>
         <Link
           href="/progress"
-          className="flex-1 rounded-xl border border-steel-600 py-3 text-center font-semibold text-chalk-300"
+          className="flex-1 rounded-lg border border-steel-600 py-3 text-center font-semibold text-chalk-300"
         >
           View Progress
         </Link>

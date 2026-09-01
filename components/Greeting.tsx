@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { firstNameFrom } from "@/lib/motivation";
@@ -33,20 +34,20 @@ export default function Greeting({ userId, displayName, message }: Props) {
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
           <Image src="/logo-mark.png" alt="" width={28} height={28} unoptimized className="h-7 w-7" />
-          <p className="font-mono text-xs uppercase tracking-widest text-copper-500">ApexLoad</p>
+          <p className="apex-kicker">ApexLoad</p>
         </div>
         <input
           autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Your name"
-          className="rounded-lg border border-steel-700 bg-steel-900 px-3 py-2 text-chalk-100 outline-none focus:border-copper-500"
+          className="apex-input-compact"
         />
         <div className="flex gap-2">
           <button
             onClick={save}
             disabled={saving}
-            className="rounded-lg bg-copper-500 px-3 py-1.5 text-xs font-semibold text-steel-950 disabled:opacity-50"
+            className="rounded-lg bg-copper-500 px-3 py-2 text-xs font-semibold text-steel-950 disabled:opacity-50"
           >
             {saving ? "Saving…" : "Save"}
           </button>
@@ -55,7 +56,7 @@ export default function Greeting({ userId, displayName, message }: Props) {
               setName(displayName ?? "");
               setEditing(false);
             }}
-            className="rounded-lg border border-steel-600 px-3 py-1.5 text-xs text-chalk-300"
+            className="apex-secondary-button"
           >
             Cancel
           </button>
@@ -68,18 +69,24 @@ export default function Greeting({ userId, displayName, message }: Props) {
     <div>
       <div className="flex items-center gap-2">
         <Image src="/logo-mark.png" alt="" width={28} height={28} unoptimized className="h-7 w-7" />
-        <p className="font-mono text-xs uppercase tracking-widest text-copper-500">ApexLoad</p>
+        <p className="apex-kicker">ApexLoad</p>
       </div>
-      <h1 className="font-display text-2xl font-bold text-chalk-100">
+      <h1 className="mt-2 font-display text-4xl font-extrabold uppercase leading-none text-chalk-100">
         Welcome back, {firstNameFrom(displayName)}{" "}
         <button
           onClick={() => setEditing(true)}
-          className="font-mono text-xs font-normal text-chalk-500 underline"
+          className="align-middle font-mono text-xs font-normal text-chalk-500 underline"
         >
           edit
         </button>
+        <Link
+          href="/account"
+          className="ml-2 align-middle font-mono text-xs font-normal text-chalk-500 underline"
+        >
+          account
+        </Link>
       </h1>
-      <p className="mt-1 text-sm text-tungsten-400">{message}</p>
+      <p className="mt-2 max-w-[19rem] text-sm leading-6 text-tungsten-400">{message}</p>
     </div>
   );
 }

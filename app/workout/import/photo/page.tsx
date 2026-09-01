@@ -196,17 +196,17 @@ export default function ImportPhotoPage() {
   }
 
   return (
-    <main className="min-h-screen px-5 pb-40 pt-8">
-      <p className="font-mono text-xs uppercase tracking-widest text-copper-500">ApexLoad</p>
-      <h1 className="mt-1 font-display text-3xl font-extrabold text-chalk-100">Import from a photo</h1>
+    <main className="apex-page pb-40">
+      <p className="apex-kicker">ApexLoad</p>
+      <h1 className="apex-title">Import from a photo</h1>
 
       {status === "idle" && (
         <>
-          <p className="mt-1 text-sm text-chalk-500">
+          <p className="apex-copy">
             Take or choose a picture of a log book page. You'll review everything before it's saved.
           </p>
-          <label className="mt-6 flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-steel-600 py-12 text-center">
-            <span className="font-body text-chalk-100">Choose a photo</span>
+          <label className="mt-6 flex min-h-[180px] cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-steel-600 bg-steel-900/60 px-6 py-12 text-center">
+            <span className="font-semibold text-chalk-100">Choose a photo</span>
             <span className="mt-1 text-xs text-chalk-500">Camera or photo library</span>
             <input
               ref={fileInputRef}
@@ -227,7 +227,7 @@ export default function ImportPhotoPage() {
       )}
 
       {status === "error" && (
-        <div className="mt-6 rounded-2xl border border-copper-600 bg-copper-600/10 p-4">
+        <div className="apex-card-hot mt-6">
           <p className="text-sm text-copper-400">{error}</p>
           <a href="/workout/log" className="mt-3 inline-block text-sm text-chalk-300 underline">
             Enter this page manually instead
@@ -245,7 +245,7 @@ export default function ImportPhotoPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Push Day"
-              className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
+              className="apex-input"
             />
           </label>
 
@@ -258,7 +258,7 @@ export default function ImportPhotoPage() {
               onChange={(e) => setNotes(e.target.value)}
               placeholder="How it felt, gym conditions, anything to remember…"
               rows={3}
-              className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
+              className="apex-input"
             />
           </label>
 
@@ -268,13 +268,13 @@ export default function ImportPhotoPage() {
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
+              className="apex-input"
             />
           </label>
 
           <div className="mt-4 flex flex-col gap-4">
             {entries.map((entry, ei) => (
-              <div key={ei} className="rounded-2xl border border-steel-700 bg-steel-900 p-4">
+              <div key={ei} className="apex-card">
                 <div className="flex items-center justify-between">
                   {entry.matchedExercise ? (
                     <p className="font-display text-lg font-bold text-chalk-100">
@@ -284,7 +284,7 @@ export default function ImportPhotoPage() {
                     <input
                       value={entry.extractedName}
                       onChange={(e) => updateEntry(ei, { extractedName: e.target.value })}
-                      className="rounded-lg border border-steel-700 bg-steel-800 px-2 py-1 font-display text-lg font-bold text-chalk-100"
+                      className="apex-input-compact font-display text-lg font-bold"
                     />
                   )}
                   <button onClick={() => removeEntry(ei)} className="font-mono text-xs text-copper-400">
@@ -362,7 +362,7 @@ export default function ImportPhotoPage() {
           <button
             onClick={saveWorkout}
             disabled={saving || !canSave}
-            className="mt-6 w-full rounded-xl bg-copper-500 px-4 py-4 text-center font-body font-semibold text-steel-950 active:bg-copper-600 disabled:opacity-50"
+            className="mt-6 w-full rounded-lg bg-copper-500 px-4 py-4 text-center font-body font-semibold text-steel-950 active:bg-copper-600 disabled:opacity-50"
           >
             {saving ? "Saving…" : "Save workout"}
           </button>

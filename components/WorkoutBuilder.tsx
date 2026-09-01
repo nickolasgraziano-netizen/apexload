@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import MuscleGroupSelect from "@/components/MuscleGroupSelect";
+import BruceLeeQuote from "@/components/BruceLeeQuote";
 import type { Exercise, MuscleGroup } from "@/lib/types";
 
 export interface WorkoutBuilderSaveArgs {
@@ -122,6 +123,7 @@ export default function WorkoutBuilder({
     setSelected((prev) => (prev.some((e) => e.id === ex.id) ? prev : [...prev, ex]));
     setShowPicker(false);
     setPickerQuery("");
+    setPickerGroupId("");
   }
 
   async function addCustomExercise() {
@@ -182,13 +184,14 @@ export default function WorkoutBuilder({
   );
 
   return (
-    <main className="min-h-screen px-5 pb-24 pt-8">
-      <p className="font-mono text-xs uppercase tracking-widest text-copper-500">Set up</p>
-      <h1 className="mt-1 font-display text-3xl font-extrabold text-chalk-100">{title}</h1>
-      {subtitle && <p className="mt-1 text-sm text-chalk-500">{subtitle}</p>}
+    <main className="apex-page">
+      <p className="apex-kicker">Set up</p>
+      <h1 className="apex-title">{title}</h1>
+      {subtitle && <p className="apex-copy">{subtitle}</p>}
+      <BruceLeeQuote className="mt-4" />
 
       <label className="mt-6 flex flex-col gap-1">
-        <span className="font-mono text-xs uppercase tracking-widest text-chalk-500">
+        <span className="apex-section-title">
           Name this workout
         </span>
         <input
@@ -196,13 +199,13 @@ export default function WorkoutBuilder({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. Push Day"
-          className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
+          className="apex-input"
         />
       </label>
 
-      <section className="mt-6">
+      <section className="apex-section">
         <div className="flex items-center justify-between">
-          <h2 className="font-mono text-xs uppercase tracking-widest text-chalk-500">
+          <h2 className="apex-section-title">
             Exercises
           </h2>
           {selected.length > 1 && (
@@ -211,7 +214,7 @@ export default function WorkoutBuilder({
                 setGroupingMode((v) => !v);
                 setGroupingSelection([]);
               }}
-              className={`rounded-full px-2.5 py-1 font-mono text-[10px] uppercase ${
+              className={`rounded-full px-3 py-2 font-mono text-[10px] uppercase ${
                 groupingMode
                   ? "bg-tungsten-500 text-steel-950"
                   : "border border-dashed border-steel-600 text-chalk-300"
@@ -240,18 +243,18 @@ export default function WorkoutBuilder({
                     autoFocus
                     value={renameValue}
                     onChange={(e) => setRenameValue(e.target.value)}
-                    className="flex-1 rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100"
+                    className="apex-input flex-1"
                   />
                   <button
                     onClick={() => saveRename(ex.id)}
                     disabled={renaming || !renameValue.trim()}
-                    className="shrink-0 rounded-xl bg-copper-500 px-3 py-3 text-xs font-semibold text-steel-950 disabled:opacity-50"
+                    className="shrink-0 rounded-lg bg-copper-500 px-3 py-3 text-xs font-semibold text-steel-950 disabled:opacity-50"
                   >
                     {renaming ? "…" : "Save"}
                   </button>
                   <button
                     onClick={() => setRenamingId(null)}
-                    className="shrink-0 rounded-xl border border-steel-600 px-3 py-3 text-xs text-chalk-300"
+                    className="apex-secondary-button shrink-0 py-3"
                   >
                     Cancel
                   </button>
@@ -267,7 +270,7 @@ export default function WorkoutBuilder({
                       onClick={() => moveExercise(index, -1)}
                       disabled={index === 0}
                       aria-label={`Move ${ex.name} up`}
-                      className="rounded-t-lg border border-steel-600 px-1.5 py-1 text-xs leading-none text-chalk-300 disabled:opacity-30"
+                      className="rounded-t-lg border border-steel-600 px-2 py-1 text-xs leading-none text-chalk-300 disabled:opacity-30"
                     >
                       ▲
                     </button>
@@ -275,7 +278,7 @@ export default function WorkoutBuilder({
                       onClick={() => moveExercise(index, 1)}
                       disabled={index === selected.length - 1}
                       aria-label={`Move ${ex.name} down`}
-                      className="rounded-b-lg border border-t-0 border-steel-600 px-1.5 py-1 text-xs leading-none text-chalk-300 disabled:opacity-30"
+                      className="rounded-b-lg border border-t-0 border-steel-600 px-2 py-1 text-xs leading-none text-chalk-300 disabled:opacity-30"
                     >
                       ▼
                     </button>
@@ -284,7 +287,7 @@ export default function WorkoutBuilder({
                 <button
                   disabled={!groupingMode}
                   onClick={() => toggleGroupingSelection(ex.id)}
-                  className={`flex flex-1 items-center justify-between rounded-xl px-4 py-3 text-left text-chalk-100 ${
+                  className={`flex min-h-[58px] flex-1 items-center justify-between rounded-lg px-4 py-3 text-left text-chalk-100 ${
                     groupingMode
                       ? selectedForGroup
                         ? "bg-tungsten-500 text-steel-950"
@@ -310,7 +313,7 @@ export default function WorkoutBuilder({
                 {!groupingMode && ex.owner_id === userId && (
                   <button
                     onClick={() => startRename(ex)}
-                    className="shrink-0 rounded-xl border border-steel-600 px-3 py-3 text-chalk-300"
+                    className="apex-secondary-button shrink-0 py-3"
                   >
                     ✎
                   </button>
@@ -318,7 +321,7 @@ export default function WorkoutBuilder({
                 {!groupingMode && (
                   <button
                     onClick={() => removeExercise(ex.id)}
-                    className="shrink-0 rounded-xl border border-copper-600 px-3 py-3 text-copper-400"
+                    className="apex-danger-button shrink-0 py-3"
                   >
                     ✕
                   </button>
@@ -334,19 +337,19 @@ export default function WorkoutBuilder({
               setShowPicker(true);
               setPickerTab("browse");
             }}
-            className="mt-2 w-full rounded-xl border border-dashed border-steel-600 py-3 text-sm text-chalk-300"
+            className="mt-2 w-full rounded-lg border border-dashed border-steel-600 py-4 text-sm font-semibold text-chalk-300"
           >
             + Add exercise
           </button>
         )}
 
         {showPicker && (
-          <div className="mt-3 rounded-xl border border-steel-700 bg-steel-900 p-3">
+          <div className="mt-3 rounded-lg border border-steel-700 bg-steel-900 p-3">
             <div className="flex items-center justify-between">
               <p className="font-mono text-xs uppercase tracking-widest text-chalk-500">
                 Add exercise
               </p>
-              <button onClick={() => setShowPicker(false)} className="text-xs text-chalk-500">
+              <button onClick={() => setShowPicker(false)} className="apex-secondary-button">
                 Close
               </button>
             </div>
@@ -380,26 +383,43 @@ export default function WorkoutBuilder({
                   placeholder="Search by name…"
                   value={pickerQuery}
                   onChange={(e) => setPickerQuery(e.target.value)}
-                  className="mt-3 w-full rounded-lg border border-steel-500 bg-steel-800 px-3 py-2 text-sm text-chalk-100 outline-none placeholder:text-chalk-500 focus:border-copper-500"
+                    className="apex-input-compact mt-3"
                 />
-                <select
-                  value={pickerGroupId}
-                  onChange={(e) => setPickerGroupId(e.target.value)}
-                  className="mt-2 w-full rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
-                >
-                  <option value="">All muscle groups</option>
+                <div className="mt-2 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <button
+                    type="button"
+                    onClick={() => setPickerGroupId("")}
+                    aria-pressed={pickerGroupId === ""}
+                    className={`shrink-0 rounded-full px-3 py-2 font-mono text-[10px] uppercase tracking-widest ${
+                      pickerGroupId === ""
+                        ? "bg-copper-500 text-steel-950"
+                        : "border border-steel-600 text-chalk-300"
+                    }`}
+                  >
+                    All
+                  </button>
                   {groups.map((g) => (
-                    <option key={g.id} value={g.id}>
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => setPickerGroupId((current) => (current === g.id ? "" : g.id))}
+                      aria-pressed={pickerGroupId === g.id}
+                      className={`shrink-0 rounded-full px-3 py-2 font-mono text-[10px] uppercase tracking-widest ${
+                        pickerGroupId === g.id
+                          ? "bg-copper-500 text-steel-950"
+                          : "border border-steel-600 text-chalk-300"
+                      }`}
+                    >
                       {g.name}
-                    </option>
+                    </button>
                   ))}
-                </select>
+                </div>
                 <ul className="mt-2 flex max-h-60 flex-col gap-1 overflow-y-auto">
                   {filteredCatalog.map((ex) => (
                     <li key={ex.id}>
                       <button
                         onClick={() => addExerciseToSelected(ex)}
-                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-chalk-100 hover:bg-steel-800"
+                        className="flex min-h-[44px] w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-chalk-100 hover:bg-steel-800"
                       >
                         <span>
                           {ex.name}
@@ -424,7 +444,7 @@ export default function WorkoutBuilder({
                   placeholder="Exercise name"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  className="rounded-lg border border-steel-700 bg-steel-800 px-3 py-2 text-sm text-chalk-100"
+                  className="apex-input-compact"
                 />
                 <MuscleGroupSelect
                   groups={groups}
@@ -452,7 +472,7 @@ export default function WorkoutBuilder({
                 </label>
                 <button
                   onClick={addCustomExercise}
-                  className="rounded-lg bg-copper-500 py-2 text-sm font-semibold text-steel-950"
+                  className="rounded-lg bg-copper-500 py-3 text-sm font-semibold text-steel-950"
                 >
                   Add and use
                 </button>
@@ -462,7 +482,7 @@ export default function WorkoutBuilder({
         )}
 
         {groupingMode && (
-          <div className="mt-2 flex items-center justify-between rounded-xl border border-tungsten-500 bg-tungsten-600/10 px-4 py-3">
+          <div className="apex-card-live mt-2 flex items-center justify-between gap-3">
             <p className="text-sm text-tungsten-400">
               {groupingSelection.length < 2
                 ? "Pick 2-3 exercises to alternate between"
@@ -471,7 +491,7 @@ export default function WorkoutBuilder({
             <button
               onClick={confirmSuperset}
               disabled={groupingSelection.length < 2}
-              className="rounded-lg bg-tungsten-500 px-3 py-1.5 text-xs font-semibold text-steel-950 disabled:opacity-40"
+              className="rounded-lg bg-tungsten-500 px-3 py-2 text-xs font-semibold text-steel-950 disabled:opacity-40"
             >
               Create superset
             </button>
@@ -501,7 +521,7 @@ export default function WorkoutBuilder({
       <button
         onClick={() => onSave({ name: name.trim(), selected, pendingGroups })}
         disabled={saving || !name.trim() || selected.length === 0}
-        className="mt-8 w-full rounded-xl bg-copper-500 px-4 py-4 text-center font-body font-semibold text-steel-950 active:bg-copper-600 disabled:opacity-50"
+        className="mt-8 w-full rounded-lg bg-copper-500 px-4 py-4 text-center font-body font-semibold text-steel-950 active:bg-copper-600 disabled:opacity-50"
       >
         {saving ? savingLabel : saveLabel}
       </button>

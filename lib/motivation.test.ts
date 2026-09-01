@@ -5,6 +5,7 @@ import {
   firstNameFrom,
   GENERIC_MESSAGES,
   pickGenericMessage,
+  shuffleMessages,
 } from "@/lib/motivation";
 
 describe("firstNameFrom", () => {
@@ -23,6 +24,10 @@ describe("firstNameFrom", () => {
 });
 
 describe("pickGenericMessage", () => {
+  it("has a broad quote pool for varied sessions", () => {
+    expect(GENERIC_MESSAGES.length).toBeGreaterThanOrEqual(40);
+  });
+
   it("always returns a quote from the pool", () => {
     for (let i = 0; i < 50; i++) {
       expect(GENERIC_MESSAGES).toContain(pickGenericMessage());
@@ -32,6 +37,15 @@ describe("pickGenericMessage", () => {
   it("draws from more than one quote across repeated calls", () => {
     const seen = new Set(Array.from({ length: 50 }, () => pickGenericMessage()));
     expect(seen.size).toBeGreaterThan(1);
+  });
+
+  it("shuffles without dropping quotes", () => {
+    const input = ["one", "two", "three", "four"];
+    const shuffled = shuffleMessages(input);
+
+    expect(shuffled).toHaveLength(input.length);
+    expect([...shuffled].sort()).toEqual([...input].sort());
+    expect(shuffled).not.toBe(input);
   });
 });
 

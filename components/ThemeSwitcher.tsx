@@ -25,9 +25,9 @@ function applyTheme(id: string) {
   }
 }
 
-// Floating control, present on every page, that lets you preview
-// alternate color themes live (no rebuild/redeploy) — picks are saved to
-// localStorage so they stick across navigation and reloads.
+// Bottom-nav control that lets you preview alternate color themes live
+// (no rebuild/redeploy) — picks are saved to localStorage so they stick
+// across navigation and reloads.
 export default function ThemeSwitcher() {
   const [open, setOpen] = useState(false);
   const [current, setCurrent] = useState("dragon");
@@ -54,14 +54,14 @@ export default function ThemeSwitcher() {
   }
 
   return (
-    <div ref={ref} className="fixed bottom-4 right-4 z-50">
+    <div ref={ref} className="relative">
       {open && (
-        <div className="mb-2 flex flex-col gap-1 rounded-xl border border-steel-600/60 bg-steel-900/95 p-2 backdrop-blur-md">
+        <div className="absolute bottom-full right-0 mb-3 w-44 rounded-lg border border-steel-600/70 bg-steel-900/95 p-2 shadow-2xl shadow-steel-950/70 backdrop-blur-md">
           {THEMES.map((t) => (
             <button
               key={t.id}
               onClick={() => pick(t.id)}
-              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-left text-xs ${
+              className={`flex min-h-10 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs ${
                 current === t.id ? "bg-steel-800 text-chalk-100" : "text-chalk-300"
               }`}
             >
@@ -77,9 +77,11 @@ export default function ThemeSwitcher() {
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label="Change theme"
-        className="flex h-11 w-11 items-center justify-center rounded-full border border-steel-600/60 bg-steel-900/90 text-lg backdrop-blur-md"
+        aria-expanded={open}
+        className={`apex-bottom-link w-full ${open ? "apex-bottom-link-active" : ""}`}
       >
-        🎨
+        <span aria-hidden="true">◐</span>
+        Theme
       </button>
     </div>
   );

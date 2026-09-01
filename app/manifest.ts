@@ -1,10 +1,7 @@
 import type { MetadataRoute } from "next";
 
-// Orientation lock only takes effect when the app is installed to a home
-// screen (display: "standalone") — a regular browser tab always follows
-// the device's rotation regardless of what's declared here. The CSS
-// landscape guard in globals.css is what actually enforces portrait-only
-// in every context, this just makes the installed-app case match too.
+// Do not force portrait here: if a phone is turned sideways, ApexLoad should
+// remain visible and usable instead of blocking the user mid-workout.
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "ApexLoad",
@@ -12,7 +9,7 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Your rolling rotation. Tracked, timed, and dialed in.",
     start_url: "/",
     display: "standalone",
-    orientation: "portrait-primary",
+    orientation: "any",
     background_color: "#0B0D10",
     theme_color: "#0B0D10",
     icons: [
