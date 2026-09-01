@@ -7,7 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "android:sync": "cap sync android",
+    "android:open": "cap open android",
+    "android:build": "cd android && set JAVA_HOME=C:\\Users\\Nick\\AppData\\Local\\Programs\\Temurin\\jdk-21&& set GRADLE_USER_HOME=..\\.gradle&& set ANDROID_USER_HOME=C:\\Users\\Nick\\.android&& gradlew.bat assembleDebug",
+    "android:install": "cd android && set JAVA_HOME=C:\\Users\\Nick\\AppData\\Local\\Programs\\Temurin\\jdk-21&& set GRADLE_USER_HOME=..\\.gradle&& set ANDROID_USER_HOME=C:\\Users\\Nick\\.android&& gradlew.bat installDebug",
+    "android:run": "cap run android"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
@@ -19,6 +24,10 @@
     "recharts": "^3.9.1"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.5.1",
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.1",
+    "@capacitor/core": "^8.5.1",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
