@@ -27,7 +27,10 @@ export async function GET(request: NextRequest) {
 
     const url = new URL("/login", requestUrl.origin);
     url.searchParams.set("error", "auth");
-    url.searchParams.set("error_description", error.message);
+    url.searchParams.set(
+      "error_code",
+      error.message.toLowerCase().includes("code verifier") ? "pkce_verifier_missing" : "callback_failed"
+    );
     return NextResponse.redirect(url);
   }
 

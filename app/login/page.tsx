@@ -5,6 +5,28 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
+function getAuthErrorMessage(errorCode: string | null, errorDescription: string | null) {
+  const decodedDescription = errorDescription?.replace(/\+/g, " ");
+
+  if (errorCode === "pkce_verifier_missing") {
+    return "That Google sign-in attempt expired. Tap Continue with Google to start a fresh sign-in.";
+  }
+
+  if (errorCode === "access_denied") {
+    return "Google sign-in was canceled. Tap Continue with Google when you're ready to try again.";
+  }
+
+  if (errorCode === "otp_expired") {
+    return "That email link is invalid or has expired. Request a fresh link and use the newest email.";
+  }
+
+  if (decodedDescription?.toLowerCase().includes("expired")) {
+    return "That sign-in link expired or was already used. Start a fresh sign-in to continue.";
+  }
+
+  return "That sign-in attempt could not be completed. Start a fresh sign-in to continue.";
+}
+
 export default function LoginPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [name, setName] = useState("");
@@ -28,15 +50,8 @@ export default function LoginPage() {
     setPasswordReset(params.get("reset") === "1");
     const errorDescription = params.get("error_description");
     const errorCode = params.get("error_code");
-    if (errorDescription || errorCode) {
-      const decodedDescription = errorDescription?.replace(/\+/g, " ");
-      setAuthLinkError(
-        errorCode === "otp_expired"
-          ? "That email link is invalid or has expired. Request a fresh link and use the newest email."
-          : decodedDescription?.toLowerCase().includes("expired")
-            ? "That sign-in link expired or was already used. Start a fresh sign-in to continue."
-            : decodedDescription ?? "That sign-in link could not be used. Start a fresh sign-in to continue."
-      );
+    if (params.get("error") === "auth" || errorDescription || errorCode) {
+      setAuthLinkError(getAuthErrorMessage(errorCode, errorDescription));
     }
   }, []);
 
