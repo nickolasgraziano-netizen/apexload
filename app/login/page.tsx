@@ -29,10 +29,13 @@ export default function LoginPage() {
     const errorDescription = params.get("error_description");
     const errorCode = params.get("error_code");
     if (errorDescription || errorCode) {
+      const decodedDescription = errorDescription?.replace(/\+/g, " ");
       setAuthLinkError(
         errorCode === "otp_expired"
           ? "That email link is invalid or has expired. Request a fresh link and use the newest email."
-          : errorDescription?.replace(/\+/g, " ") ?? "That auth link could not be used."
+          : decodedDescription?.toLowerCase().includes("expired")
+            ? "That sign-in link expired or was already used. Start a fresh sign-in to continue."
+            : decodedDescription ?? "That sign-in link could not be used. Start a fresh sign-in to continue."
       );
     }
   }, []);
@@ -95,7 +98,15 @@ export default function LoginPage() {
   async function handleGoogleSignIn() {
     setError(null);
     setNotice(null);
+    setVerified(false);
+    setVerificationFailed(false);
+    setPasswordReset(false);
+    setAuthLinkError(null);
     setOauthLoading(true);
+
+    if (window.location.search) {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
 
     const supabase = createClient();
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
