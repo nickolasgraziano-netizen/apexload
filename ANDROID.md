@@ -45,4 +45,6 @@ adb devices
 
 - Health Connect is intentionally not included in Phase 1.
 - The app id is `com.apexload.app`.
+- Supabase Auth redirect URLs must include `com.apexload.app://auth/callback`
+  so Google sign-in can return from Chrome to the installed Android app.
 - The launcher icon and splash images are generated from `public/logo-mark.png`.

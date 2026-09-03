@@ -3,7 +3,12 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { App } from "@capacitor/app";
+import { Browser } from "@capacitor/browser";
+import { Capacitor } from "@capacitor/core";
 import { createClient } from "@/lib/supabase/client";
+
+const NATIVE_AUTH_CALLBACK_URL = "com.apexload.app://auth/callback";
 
 function getAuthErrorMessage(errorCode: string | null, errorDescription: string | null) {
   const decodedDescription = errorDescription?.replace(/\+/g, " ");
@@ -42,6 +47,59 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const appUrlListener = App.addListener("appUrlOpen", async ({ url }) => {
+      if (!url.startsWith(NATIVE_AUTH_CALLBACK_URL)) return;
+
+      setOauthLoading(true);
+      await Browser.close().catch(() => {});
+
+      const callbackUrl = new URL(url);
+      const errorCode = callbackUrl.searchParams.get("error_code") || callbackUrl.searchParams.get("error");
+      const errorDescription = callbackUrl.searchParams.get("error_description");
+
+      if (errorCode || errorDescription) {
+        setOauthLoading(false);
+        setAuthLinkError(getAuthErrorMessage(errorCode, errorDescription));
+        return;
+      }
+
+      const code = callbackUrl.searchParams.get("code");
+      if (!code) {
+        setOauthLoading(false);
+        setAuthLinkError(getAuthErrorMessage("callback_failed", null));
+        return;
+      }
+
+      const supabase = createClient();
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+      setOauthLoading(false);
+      if (error) {
+        setAuthLinkError(
+          getAuthErrorMessage(
+            error.message.toLowerCase().includes("code verifier") ? "pkce_verifier_missing" : "callback_failed",
+            null
+          )
+        );
+        return;
+      }
+
+      router.push("/");
+      router.refresh();
+    });
+    const browserFinishedListener = Browser.addListener("browserFinished", () => {
+      setOauthLoading(false);
+    });
+
+    return () => {
+      appUrlListener.then((handle) => handle.remove());
+      browserFinishedListener.then((handle) => handle.remove());
+    };
+  }, [router]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -124,15 +182,27 @@ export default function LoginPage() {
     }
 
     const supabase = createClient();
-    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+    const isNativeApp = Capacitor.isNativePlatform();
+    const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: isNativeApp ? NATIVE_AUTH_CALLBACK_URL : `${window.location.origin}/auth/callback`,
+        skipBrowserRedirect: isNativeApp,
         queryParams: {
           prompt: "select_account",
         },
       },
     });
+
+    if (isNativeApp && !oauthError) {
+      if (data.url) {
+        await Browser.open({ url: data.url });
+      } else {
+        setOauthLoading(false);
+        setAuthLinkError(getAuthErrorMessage("callback_failed", null));
+      }
+      return;
+    }
 
     setOauthLoading(false);
     if (oauthError) {
