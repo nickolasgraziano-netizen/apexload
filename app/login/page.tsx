@@ -103,6 +103,11 @@ export default function LoginPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    if (params.has("code") || params.has("error_code") || params.get("error") === "access_denied") {
+      window.location.replace(`/auth/callback${window.location.search}`);
+      return;
+    }
+
     setVerified(params.get("verified") === "1");
     setVerificationFailed(params.get("error") === "verification");
     setPasswordReset(params.get("reset") === "1");

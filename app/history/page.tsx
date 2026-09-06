@@ -5,8 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { formatIntervalSummary } from "@/lib/metrics";
+import { autoEndStaleSessions } from "@/lib/sessionLifecycle";
 import BruceLeeQuote from "@/components/BruceLeeQuote";
-import type { IntervalData } from "@/lib/types";
+import type { ActivityType, IntervalData } from "@/lib/types";
 
 interface HistoryDay {
   sessionId: string;
@@ -15,6 +16,10 @@ interface HistoryDay {
   muscleGroupName: string;
   startedAt: string;
   endedAt: string | null;
+  lastActivityAt: string;
+  autoEndedAt: string | null;
+  endReason: string;
+  activityType: ActivityType;
   setCount: number;
 }
 
@@ -27,6 +32,38 @@ function canResume(d: HistoryDay): boolean {
   if (d.endedAt) return false;
   const ageMs = Date.now() - new Date(d.startedAt).getTime();
   return ageMs < RESUME_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+}
+
+function toDateInputValue(value: string) {
+  const d = new Date(value);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 10);
+}
+
+function toTimeInputValue(value: string) {
+  const d = new Date(value);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(11, 16);
+}
+
+function combineLocalDateTime(date: string, time: string) {
+  return new Date(`${date}T${time || "00:00"}:00`).toISOString();
+}
+
+function formatDuration(startedAt: string, endedAt: string | null) {
+  if (!endedAt) return "In progress";
+  const minutes = Math.max(
+    0,
+    Math.round((new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 60000)
+  );
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (hours === 0) return `${mins} min`;
+  return `${hours}h ${mins}m`;
+}
+
+function activityLabel(activityType: ActivityType) {
+  return activityType[0].toUpperCase() + activityType.slice(1);
 }
 
 interface ExerciseDetail {
@@ -54,15 +91,26 @@ export default function HistoryPage() {
   const [renameValue, setRenameValue] = useState("");
   const [notesEditId, setNotesEditId] = useState<string | null>(null);
   const [notesEditValue, setNotesEditValue] = useState("");
+  const [timeEditId, setTimeEditId] = useState<string | null>(null);
+  const [startDateValue, setStartDateValue] = useState("");
+  const [startTimeValue, setStartTimeValue] = useState("");
+  const [endDateValue, setEndDateValue] = useState("");
+  const [endTimeValue, setEndTimeValue] = useState("");
+  const [activityEditValue, setActivityEditValue] = useState<ActivityType>("strength");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [detailsCache, setDetailsCache] = useState<Record<string, ExerciseDetail[]>>({});
   const [loadingDetails, setLoadingDetails] = useState<string | null>(null);
 
   async function refresh() {
     const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) await autoEndStaleSessions(supabase);
+
     const { data: sessions } = await supabase
       .from("sessions")
-      .select("id, name, notes, started_at, ended_at, muscle_groups ( name ), workout_templates ( name )")
+      .select("id, name, notes, started_at, ended_at, last_activity_at, auto_ended_at, end_reason, activity_type, muscle_groups ( name ), workout_templates ( name )")
       .order("started_at", { ascending: false });
 
     const sessionIds = (sessions ?? []).map((s: any) => s.id);
@@ -83,6 +131,10 @@ export default function HistoryPage() {
         muscleGroupName: s.muscle_groups?.name ?? s.workout_templates?.name ?? "Custom workout",
         startedAt: s.started_at,
         endedAt: s.ended_at,
+        lastActivityAt: s.last_activity_at,
+        autoEndedAt: s.auto_ended_at,
+        endReason: s.end_reason,
+        activityType: s.activity_type,
         setCount: setCounts.get(s.id) ?? 0,
       }))
     );
@@ -168,6 +220,37 @@ export default function HistoryPage() {
     setNotesEditId(null);
   }
 
+  async function saveTimes(sessionId: string) {
+    const startedAt = combineLocalDateTime(startDateValue, startTimeValue);
+    const endedAt = endDateValue ? combineLocalDateTime(endDateValue, endTimeValue) : null;
+    const supabase = createClient();
+    await supabase
+      .from("sessions")
+      .update({
+        started_at: startedAt,
+        ended_at: endedAt,
+        last_activity_at: endedAt ?? startedAt,
+        activity_type: activityEditValue,
+        end_reason: "edited",
+      })
+      .eq("id", sessionId);
+    setDays((prev) =>
+      prev.map((d) =>
+        d.sessionId === sessionId
+          ? {
+              ...d,
+              startedAt,
+              endedAt,
+              lastActivityAt: endedAt ?? startedAt,
+              activityType: activityEditValue,
+              endReason: "edited",
+            }
+          : d
+      )
+    );
+    setTimeEditId(null);
+  }
+
   async function repeatWorkout(sessionId: string) {
     setRepeatingId(sessionId);
     const supabase = createClient();
@@ -192,7 +275,7 @@ export default function HistoryPage() {
 
     const { data: originalSession } = await supabase
       .from("sessions")
-      .select("muscle_group_id")
+      .select("name, muscle_group_id, activity_type, muscle_groups ( name ), workout_templates ( name )")
       .eq("id", sessionId)
       .maybeSingle();
 
@@ -203,7 +286,16 @@ export default function HistoryPage() {
 
     const { data: newSession } = await supabase
       .from("sessions")
-      .insert({ user_id: user.id, muscle_group_id: originalSession?.muscle_group_id ?? null })
+      .insert({
+        user_id: user.id,
+        muscle_group_id: originalSession?.muscle_group_id ?? null,
+        name:
+          originalSession?.name ??
+          (originalSession as any)?.muscle_groups?.name ??
+          (originalSession as any)?.workout_templates?.name ??
+          "Workout",
+        activity_type: originalSession?.activity_type ?? "strength",
+      })
       .select()
       .single();
 
@@ -302,10 +394,19 @@ export default function HistoryPage() {
                         day: "numeric",
                       })}
                       {" · "}
+                      {activityLabel(d.activityType)}
+                      {" · "}
+                      {formatDuration(d.startedAt, d.endedAt)}
+                      {" · "}
                       {d.setCount} {d.setCount === 1 ? "set" : "sets"}
                       {" "}
                       {expandedId === d.sessionId ? "▲" : "▼"}
                     </p>
+                    {d.endReason === "auto_inactivity" && (
+                      <p className="mt-1 text-xs text-tungsten-400">
+                        Auto-ended at last activity
+                      </p>
+                    )}
                   </button>
                   <button
                     onClick={() => {
@@ -363,6 +464,74 @@ export default function HistoryPage() {
                         </button>
                       </div>
                       {d.notes && <p className="mt-1 text-sm text-chalk-100">{d.notes}</p>}
+                    </div>
+                  )}
+
+                  {timeEditId === d.sessionId ? (
+                    <div className="rounded-lg border border-steel-700 bg-steel-950/40 p-3">
+                      <p className="font-mono text-[10px] uppercase tracking-widest text-chalk-500">
+                        Timing
+                      </p>
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <label className="flex flex-col gap-1">
+                          <span className="font-mono text-[10px] uppercase text-chalk-500">Start date</span>
+                          <input type="date" value={startDateValue} onChange={(e) => setStartDateValue(e.target.value)} className="apex-input-compact" />
+                        </label>
+                        <label className="flex flex-col gap-1">
+                          <span className="font-mono text-[10px] uppercase text-chalk-500">Start time</span>
+                          <input type="time" value={startTimeValue} onChange={(e) => setStartTimeValue(e.target.value)} className="apex-input-compact" />
+                        </label>
+                        <label className="flex flex-col gap-1">
+                          <span className="font-mono text-[10px] uppercase text-chalk-500">End date</span>
+                          <input type="date" value={endDateValue} onChange={(e) => setEndDateValue(e.target.value)} className="apex-input-compact" />
+                        </label>
+                        <label className="flex flex-col gap-1">
+                          <span className="font-mono text-[10px] uppercase text-chalk-500">End time</span>
+                          <input type="time" value={endTimeValue} onChange={(e) => setEndTimeValue(e.target.value)} className="apex-input-compact" />
+                        </label>
+                      </div>
+                      <label className="mt-2 flex flex-col gap-1">
+                        <span className="font-mono text-[10px] uppercase text-chalk-500">Activity type</span>
+                        <select value={activityEditValue} onChange={(e) => setActivityEditValue(e.target.value as ActivityType)} className="apex-input-compact">
+                          <option value="strength">Strength</option>
+                          <option value="cardio">Cardio</option>
+                          <option value="mixed">Mixed</option>
+                          <option value="mobility">Mobility</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </label>
+                      <div className="mt-3 flex gap-2">
+                        <button onClick={() => saveTimes(d.sessionId)} className="rounded-lg bg-copper-500 px-3 py-2 text-xs font-semibold text-steel-950">
+                          Save timing
+                        </button>
+                        <button onClick={() => setTimeEditId(null)} className="apex-secondary-button">
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between rounded-lg border border-steel-700 bg-steel-950/40 px-3 py-2">
+                      <div>
+                        <p className="font-mono text-[10px] uppercase tracking-widest text-chalk-500">
+                          Timing
+                        </p>
+                        <p className="mt-0.5 text-sm text-chalk-100">
+                          {formatDuration(d.startedAt, d.endedAt)}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setTimeEditId(d.sessionId);
+                          setStartDateValue(toDateInputValue(d.startedAt));
+                          setStartTimeValue(toTimeInputValue(d.startedAt));
+                          setEndDateValue(d.endedAt ? toDateInputValue(d.endedAt) : "");
+                          setEndTimeValue(d.endedAt ? toTimeInputValue(d.endedAt) : "");
+                          setActivityEditValue(d.activityType);
+                        }}
+                        className="font-mono text-[10px] uppercase text-chalk-500 underline"
+                      >
+                        Edit times
+                      </button>
                     </div>
                   )}
 

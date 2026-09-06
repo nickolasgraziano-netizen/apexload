@@ -1,11 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
-import { computeSessionsPerWeek, isoWeekStart } from "@/lib/metrics";
+import { computeMuscleGroupFreshness, computeSessionsPerWeek, isoWeekStart } from "@/lib/metrics";
 import { buildMotivationalMessage, findLatestPR } from "@/lib/motivation";
+import { autoEndStaleSessions } from "@/lib/sessionLifecycle";
 import LogoutButton from "@/components/LogoutButton";
 import Greeting from "@/components/Greeting";
 import TemplateList from "@/components/TemplateList";
 import DismissSessionButton from "@/components/DismissSessionButton";
 import BruceLeeQuote from "@/components/BruceLeeQuote";
+import NextUpSelector from "@/components/NextUpSelector";
 import type { OrderedMuscleGroup, WorkoutSession, WorkoutTemplate } from "@/lib/types";
 import Link from "next/link";
 
@@ -18,6 +20,8 @@ export default async function DashboardPage() {
   const { data: profile } = user
     ? await supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle()
     : { data: null };
+
+  if (user) await autoEndStaleSessions(supabase);
 
   // Join the user's personal rotation order onto the global muscle group
   // taxonomy — one query, sorted the way this user has arranged their split.
@@ -55,7 +59,7 @@ export default async function DashboardPage() {
   startOfToday.setHours(0, 0, 0, 0);
   const { data: openSessions } = await supabase
     .from("sessions")
-    .select("id, started_at, muscle_groups ( name ), workout_templates ( name )")
+    .select("id, started_at, last_activity_at, muscle_groups ( name ), workout_templates ( name )")
     .is("ended_at", null)
     .is("dismissed_at", null)
     .gte("started_at", startOfToday.toISOString())
@@ -75,7 +79,7 @@ export default async function DashboardPage() {
     .limit(200);
   const { data: recentSetRows } = await supabase
     .from("sets")
-    .select("weight, logged_at, exercise_id, exercises ( name )")
+    .select("weight, logged_at, exercise_id, exercises ( name, muscle_group_id )")
     .not("weight", "is", null)
     .order("logged_at", { ascending: false })
     .limit(500);
@@ -93,6 +97,24 @@ export default async function DashboardPage() {
   const weeklyCounts = computeSessionsPerWeek(allSessionsForWeek ?? []);
   const currentWeek = isoWeekStart(new Date());
   const sessionsThisWeek = weeklyCounts.find((w) => w.weekStart === currentWeek)?.count ?? 0;
+  const freshness = computeMuscleGroupFreshness(
+    (recentSetRows ?? [])
+      .filter((s: any) => s.exercises?.muscle_group_id)
+      .map((s: any) => ({
+        muscle_group_id: s.exercises.muscle_group_id as string,
+        logged_at: s.logged_at as string,
+      })),
+    muscleGroups.map((g) => g.id)
+  );
+  const hasMuscleGroupHistory = (recentSetRows ?? []).some((s: any) => s.exercises?.muscle_group_id);
+  const nextUp = [...freshness].sort((a, b) => {
+    if (a.daysSinceLastTrained == null) return -1;
+    if (b.daysSinceLastTrained == null) return 1;
+    return b.daysSinceLastTrained - a.daysSinceLastTrained;
+  }).map((item) => ({
+    ...item,
+    name: muscleGroups.find((g) => g.id === item.muscleGroupId)?.name ?? "Workout",
+  }));
 
   const message = buildMotivationalMessage({
     latestPR,
@@ -136,18 +158,26 @@ export default async function DashboardPage() {
         </div>
       </header>
 
-      <section className="mt-28">
+      {hasMuscleGroupHistory && nextUp.length > 0 && <NextUpSelector items={nextUp} />}
+
+      <section className={hasMuscleGroupHistory ? "mt-3" : "mt-28"}>
         <Link
           href="/workout/new"
-          className="apex-action-primary"
+          className={hasMuscleGroupHistory ? "apex-action" : "apex-action-primary"}
         >
           <div>
-            <p>Start a new workout</p>
-            <p className="mt-0.5 text-xs font-normal text-steel-800">
+            <p className={hasMuscleGroupHistory ? "font-semibold text-chalk-100" : undefined}>
+              {hasMuscleGroupHistory ? "Build custom" : "Start a new workout"}
+            </p>
+            <p
+              className={`mt-0.5 text-xs font-normal ${
+                hasMuscleGroupHistory ? "text-chalk-500" : "text-steel-800"
+              }`}
+            >
               Build it fresh, or reuse one you've done before
             </p>
           </div>
-          <span className="font-mono text-xs">→</span>
+          <span className={`font-mono text-xs ${hasMuscleGroupHistory ? "text-copper-400" : ""}`}>→</span>
         </Link>
       </section>
 

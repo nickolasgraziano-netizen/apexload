@@ -1,15 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
   computeDifficultyBreakdown,
+  computeAverageSessionDuration,
   computeDurationMinutes,
   computeMuscleGroupFreshness,
   computeSessionsPerWeek,
   computeSessionSummary,
+  computeTotalSessionDuration,
   computeTotalCalories,
   computeTotalDistance,
   computeVariantSplit,
   computeWeeklyCalories,
   computeWeeklyDistance,
+  computeWeeklyDuration,
   computeWeeklyVolume,
   formatIntervalSummary,
   isoWeekStart,
@@ -124,6 +127,27 @@ describe("computeSessionsPerWeek", () => {
       { weekStart: "2026-06-01", count: 2 },
       { weekStart: "2026-06-08", count: 1 },
     ]);
+  });
+});
+
+describe("workout duration metrics", () => {
+  const sessions = [
+    { started_at: "2026-06-01T00:00:00Z", ended_at: "2026-06-01T01:00:00Z" },
+    { started_at: "2026-06-03T00:00:00Z", ended_at: "2026-06-03T00:30:00Z" },
+    { started_at: "2026-06-08T00:00:00Z", ended_at: "2026-06-08T02:00:00Z" },
+    { started_at: "2026-06-09T00:00:00Z", ended_at: null },
+  ];
+
+  it("sums completed workout duration per ISO week", () => {
+    expect(computeWeeklyDuration(sessions)).toEqual([
+      { weekStart: "2026-06-01", minutes: 90 },
+      { weekStart: "2026-06-08", minutes: 120 },
+    ]);
+  });
+
+  it("computes total and average duration from completed sessions only", () => {
+    expect(computeTotalSessionDuration(sessions)).toBe(210);
+    expect(computeAverageSessionDuration(sessions)).toBe(70);
   });
 });
 

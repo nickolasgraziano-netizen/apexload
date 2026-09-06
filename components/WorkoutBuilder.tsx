@@ -22,6 +22,7 @@ interface Props {
   initialName?: string;
   initialSelected?: Exercise[];
   initialPendingGroups?: string[][];
+  initialPickerGroupId?: string;
 }
 
 // Shared "build a workout from nothing" UI: name it, add exercises one at a
@@ -39,6 +40,7 @@ export default function WorkoutBuilder({
   initialName = "",
   initialSelected = [],
   initialPendingGroups = [],
+  initialPickerGroupId = "",
 }: Props) {
   const [name, setName] = useState(initialName);
   const [selected, setSelected] = useState<Exercise[]>(initialSelected);
@@ -50,9 +52,9 @@ export default function WorkoutBuilder({
   const [userId, setUserId] = useState<string | null>(null);
   const [groups, setGroups] = useState<MuscleGroup[]>([]);
   const [catalog, setCatalog] = useState<(Exercise & { muscle_groups: { name: string } | null })[]>([]);
-  const [showPicker, setShowPicker] = useState(false);
+  const [showPicker, setShowPicker] = useState(Boolean(initialPickerGroupId));
   const [pickerQuery, setPickerQuery] = useState("");
-  const [pickerGroupId, setPickerGroupId] = useState("");
+  const [pickerGroupId, setPickerGroupId] = useState(initialPickerGroupId);
   // Which half of the picker is showing — browsing always wins by default
   // since it's the far more common action.
   const [pickerTab, setPickerTab] = useState<"browse" | "custom">("browse");
@@ -123,7 +125,6 @@ export default function WorkoutBuilder({
     setSelected((prev) => (prev.some((e) => e.id === ex.id) ? prev : [...prev, ex]));
     setShowPicker(false);
     setPickerQuery("");
-    setPickerGroupId("");
   }
 
   async function addCustomExercise() {

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import WorkoutBuilder, { type WorkoutBuilderSaveArgs } from "@/components/WorkoutBuilder";
 import { saveWorkoutTemplate } from "@/lib/templates";
+import { inferActivityTypeFromExercises } from "@/lib/sessionLifecycle";
 
 // Build a workout and start logging it immediately. Naming it IS saving
 // it — it becomes a reusable template right away, and the live session
@@ -12,6 +13,14 @@ import { saveWorkoutTemplate } from "@/lib/templates";
 export default function BuildWorkoutPage() {
   const router = useRouter();
   const [starting, setStarting] = useState(false);
+  const [initialParams] = useState(() => {
+    if (typeof window === "undefined") return { muscleGroupId: "", name: "" };
+    const params = new URLSearchParams(window.location.search);
+    return {
+      muscleGroupId: params.get("muscleGroupId") ?? "",
+      name: params.get("name") ?? "",
+    };
+  });
 
   async function handleSave({ name, selected, pendingGroups }: WorkoutBuilderSaveArgs) {
     setStarting(true);
@@ -38,7 +47,13 @@ export default function BuildWorkoutPage() {
 
     const { data: session } = await supabase
       .from("sessions")
-      .insert({ user_id: user.id, muscle_group_id: null, template_id: templateId })
+      .insert({
+        user_id: user.id,
+        muscle_group_id: null,
+        template_id: templateId,
+        name,
+        activity_type: inferActivityTypeFromExercises(selected),
+      })
       .select()
       .single();
     if (!session) {
@@ -76,6 +91,8 @@ export default function BuildWorkoutPage() {
       saving={starting}
       saveLabel="Save & start workout"
       savingLabel="Saving…"
+      initialName={initialParams.name}
+      initialPickerGroupId={initialParams.muscleGroupId}
       onSave={handleSave}
     />
   );

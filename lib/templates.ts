@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { inferActivityTypeFromExerciseIds } from "@/lib/sessionLifecycle";
 
 async function writeTemplateExercises(
   supabase: SupabaseClient,
@@ -83,7 +84,12 @@ export async function startWorkoutTemplate(
 
   const { data: session } = await supabase
     .from("sessions")
-    .insert({ user_id: userId, muscle_group_id: null, template_id: templateId })
+    .insert({
+      user_id: userId,
+      muscle_group_id: null,
+      template_id: templateId,
+      activity_type: await inferActivityTypeFromExerciseIds(supabase, exerciseIds),
+    })
     .select()
     .single();
   if (!session) return null;

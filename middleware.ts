@@ -2,6 +2,17 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
+  const hasOAuthCallbackParams =
+    request.nextUrl.searchParams.has("code") ||
+    request.nextUrl.searchParams.has("error_code") ||
+    request.nextUrl.searchParams.get("error") === "access_denied";
+
+  if (hasOAuthCallbackParams && !request.nextUrl.pathname.startsWith("/auth/callback")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/callback";
+    return NextResponse.redirect(url);
+  }
+
   // Next.js prefetches every visible <Link> in the background. Those
   // requests run in parallel with real navigations and can race to refresh
   // the same rotating Supabase refresh token — the loser gets "already

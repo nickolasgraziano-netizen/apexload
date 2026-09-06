@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import MuscleGroupSelect from "@/components/MuscleGroupSelect";
+import { inferActivityTypeFromExercises } from "@/lib/sessionLifecycle";
 import type { Exercise, MuscleGroup, SetDifficulty } from "@/lib/types";
 
 interface ExtractedSet {
@@ -134,6 +135,11 @@ export default function ImportPhotoPage() {
         name: name.trim() || null,
         started_at: startedAt.toISOString(),
         ended_at: endedAt.toISOString(),
+        last_activity_at: endedAt.toISOString(),
+        end_reason: "manual",
+        activity_type: inferActivityTypeFromExercises(
+          entries.map((entry) => entry.matchedExercise ?? ({ is_cardio: false } as Exercise))
+        ),
         notes: notes.trim() || null,
       })
       .select()
@@ -166,6 +172,7 @@ export default function ImportPhotoPage() {
             muscle_group_id: entry.newGroupId,
             name: entry.extractedName,
             is_custom: true,
+            is_cardio: false,
           })
           .select()
           .single();

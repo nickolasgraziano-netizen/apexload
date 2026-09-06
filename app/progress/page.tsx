@@ -2,21 +2,26 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import {
   computeDifficultyBreakdown,
+  computeAverageSessionDuration,
   computeMuscleGroupFreshness,
   computeSessionsPerWeek,
+  computeTotalSessionDuration,
   computeTotalCalories,
   computeTotalDistance,
   computeVariantSplit,
   computeWeeklyCalories,
   computeWeeklyDistance,
+  computeWeeklyDuration,
   computeWeeklyVolume,
   isoWeekStart,
 } from "@/lib/metrics";
 import { buildMotivationalMessage, findLatestPR } from "@/lib/motivation";
+import { autoEndStaleSessions } from "@/lib/sessionLifecycle";
 import {
   CaloriesChart,
   DifficultyChart,
   DistanceChart,
+  DurationChart,
   SessionsPerWeekChart,
   VariantChart,
   VolumeChart,
@@ -27,6 +32,8 @@ import type { Exercise, WorkoutSession } from "@/lib/types";
 
 export default async function ProgressPage() {
   const supabase = createClient();
+
+  await autoEndStaleSessions(supabase);
 
   const { data: rotation } = await supabase
     .from("user_rotation")
@@ -39,7 +46,7 @@ export default async function ProgressPage() {
 
   const { data: sessionRows } = await supabase
     .from("sessions")
-    .select("id, muscle_group_id, started_at, ended_at")
+    .select("id, muscle_group_id, started_at, ended_at, last_activity_at, auto_ended_at, end_reason, activity_type")
     .order("started_at");
   const sessions = (sessionRows ?? []) as WorkoutSession[];
 
@@ -73,6 +80,9 @@ export default async function ProgressPage() {
     muscleGroups.map((g) => g.id)
   );
   const sessionsPerWeek = computeSessionsPerWeek(sessions);
+  const weeklyDuration = computeWeeklyDuration(sessions);
+  const totalDurationMinutes = computeTotalSessionDuration(sessions);
+  const averageDurationMinutes = computeAverageSessionDuration(sessions);
   const weeklyCalories = computeWeeklyCalories(sets);
   const totalCalories = computeTotalCalories(sets);
   const weeklyDistance = computeWeeklyDistance(sets);
@@ -174,6 +184,23 @@ export default async function ProgressPage() {
             </h2>
             <div className="mt-2">
               <SessionsPerWeekChart data={sessionsPerWeek} />
+            </div>
+          </section>
+
+          <section className="apex-card apex-section">
+            <h2 className="apex-section-title">Workout duration</h2>
+            <div className="mt-2 grid grid-cols-2 gap-3">
+              <div className="apex-stat text-center">
+                <p className="apex-stat-value">{Math.round(totalDurationMinutes / 60)}</p>
+                <p className="apex-stat-label">Total hours</p>
+              </div>
+              <div className="apex-stat text-center">
+                <p className="apex-stat-value">{averageDurationMinutes}</p>
+                <p className="apex-stat-label">Avg min/session</p>
+              </div>
+            </div>
+            <div className="mt-3">
+              <DurationChart data={weeklyDuration} />
             </div>
           </section>
 

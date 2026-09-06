@@ -133,6 +133,47 @@ export function computeSessionsPerWeek(
     .sort((a, b) => a.weekStart.localeCompare(b.weekStart));
 }
 
+export interface WeeklyDuration {
+  weekStart: string;
+  minutes: number;
+}
+
+export function computeSessionDurationMinutes(
+  session: { started_at: string; ended_at: string | null }
+): number {
+  if (!session.ended_at) return 0;
+  return computeDurationMinutes(session.started_at, session.ended_at);
+}
+
+/** Completed workout duration totals per ISO week. */
+export function computeWeeklyDuration(
+  sessions: { started_at: string; ended_at: string | null }[]
+): WeeklyDuration[] {
+  const totals = new Map<string, number>();
+  for (const s of sessions) {
+    if (!s.ended_at) continue;
+    const weekStart = isoWeekStart(s.started_at);
+    totals.set(weekStart, (totals.get(weekStart) ?? 0) + computeSessionDurationMinutes(s));
+  }
+  return [...totals.entries()]
+    .map(([weekStart, minutes]) => ({ weekStart, minutes }))
+    .sort((a, b) => a.weekStart.localeCompare(b.weekStart));
+}
+
+export function computeAverageSessionDuration(
+  sessions: { started_at: string; ended_at: string | null }[]
+): number {
+  const durations = sessions.map(computeSessionDurationMinutes).filter((minutes) => minutes > 0);
+  if (durations.length === 0) return 0;
+  return Math.round(durations.reduce((sum, minutes) => sum + minutes, 0) / durations.length);
+}
+
+export function computeTotalSessionDuration(
+  sessions: { started_at: string; ended_at: string | null }[]
+): number {
+  return sessions.reduce((sum, session) => sum + computeSessionDurationMinutes(session), 0);
+}
+
 export interface WeeklyCalories {
   weekStart: string;
   calories: number;

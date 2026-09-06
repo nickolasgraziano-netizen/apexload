@@ -9,3 +9,6 @@ tsconfig.tsbuildinfo
 .env*
 Assets
 .gradle/
+logphotos/
+supabase/.temp/
+96e080acb9b5b7d084bcf0c7e9b7886f.jpg

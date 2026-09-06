@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import MuscleGroupSelect from "@/components/MuscleGroupSelect";
-import type { Exercise, IntervalData, MuscleGroup, SetDifficulty, SetSide, TrainingVariant } from "@/lib/types";
+import { inferActivityTypeFromExercises } from "@/lib/sessionLifecycle";
+import type { ActivityType, Exercise, IntervalData, MuscleGroup, SetDifficulty, SetSide, TrainingVariant } from "@/lib/types";
 
 interface SetEntry {
   reps: number;
@@ -60,13 +61,27 @@ function toDateInputValue(iso: string): string {
   return d.toISOString().slice(0, 10);
 }
 
+function toTimeInputValue(iso: string): string {
+  const d = new Date(iso);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(11, 16);
+}
+
+function combineLocalDateTime(date: string, time: string) {
+  return new Date(`${date}T${time || "00:00"}:00`).toISOString();
+}
+
 export default function EditWorkoutPage() {
   const { id: sessionId } = useParams<{ id: string }>();
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
-  const [date, setDate] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [activityType, setActivityType] = useState<ActivityType>("strength");
   const [notes, setNotes] = useState("");
   const [entries, setEntries] = useState<ExerciseEntry[]>([]);
   const [saving, setSaving] = useState(false);
@@ -102,7 +117,11 @@ export default function EditWorkoutPage() {
 
       if (session) {
         setName(session.name ?? "");
-        setDate(toDateInputValue(session.started_at));
+        setStartDate(toDateInputValue(session.started_at));
+        setStartTime(toTimeInputValue(session.started_at));
+        setEndDate(session.ended_at ? toDateInputValue(session.ended_at) : "");
+        setEndTime(session.ended_at ? toTimeInputValue(session.ended_at) : "");
+        setActivityType(session.activity_type ?? "strength");
         setNotes(session.notes ?? "");
       }
 
@@ -276,15 +295,20 @@ export default function EditWorkoutPage() {
       return;
     }
 
-    const startedAt = new Date(`${date}T12:00:00`);
-    const endedAt = new Date(startedAt.getTime() + 45 * 60 * 1000);
+    const startedAtIso = combineLocalDateTime(startDate, startTime);
+    const endedAtIso = endDate ? combineLocalDateTime(endDate, endTime) : null;
+    const startedAt = new Date(startedAtIso);
+    const finalActivityType = activityType || inferActivityTypeFromExercises(entries.map((entry) => entry.exercise));
 
     await supabase
       .from("sessions")
       .update({
         name: name.trim() || null,
-        started_at: startedAt.toISOString(),
-        ended_at: endedAt.toISOString(),
+        started_at: startedAtIso,
+        ended_at: endedAtIso,
+        last_activity_at: endedAtIso ?? startedAtIso,
+        activity_type: finalActivityType,
+        end_reason: "edited",
         notes: notes.trim() || null,
       })
       .eq("id", sessionId);
@@ -404,13 +428,50 @@ export default function EditWorkoutPage() {
       </label>
 
       <label className="mt-4 flex flex-col gap-1">
-        <span className="font-mono text-xs uppercase tracking-widest text-chalk-500">Date</span>
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
+        <span className="font-mono text-xs uppercase tracking-widest text-chalk-500">Timing</span>
+        <div className="grid grid-cols-2 gap-2">
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
+          />
+          <input
+            type="time"
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
+            className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
+          />
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            aria-label="End date"
+            className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
+          />
+          <input
+            type="time"
+            value={endTime}
+            onChange={(e) => setEndTime(e.target.value)}
+            aria-label="End time"
+            className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
+          />
+        </div>
+      </label>
+
+      <label className="mt-4 flex flex-col gap-1">
+        <span className="font-mono text-xs uppercase tracking-widest text-chalk-500">Activity type</span>
+        <select
+          value={activityType}
+          onChange={(e) => setActivityType(e.target.value as ActivityType)}
           className="rounded-xl border border-steel-700 bg-steel-900 px-4 py-3 text-chalk-100 outline-none focus:border-copper-500"
-        />
+        >
+          <option value="strength">Strength</option>
+          <option value="cardio">Cardio</option>
+          <option value="mixed">Mixed</option>
+          <option value="mobility">Mobility</option>
+          <option value="other">Other</option>
+        </select>
       </label>
 
       <label className="mt-4 flex flex-col gap-1">

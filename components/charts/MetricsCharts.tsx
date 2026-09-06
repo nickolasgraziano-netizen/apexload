@@ -19,6 +19,7 @@ import type {
   WeeklySessionCount,
   WeeklyCalories,
   WeeklyDistance,
+  WeeklyDuration,
 } from "@/lib/metrics";
 
 const AXIS_COLOR = "rgb(var(--color-steel-500))";
@@ -209,6 +210,21 @@ export function SessionsPerWeekChart({ data }: { data: WeeklySessionCount[] }) {
           dot={{ r: 3, fill: "rgb(var(--color-copper-500))" }}
         />
       </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function DurationChart({ data }: { data: WeeklyDuration[] }) {
+  const rows = data.map((d) => ({ ...d, label: shortWeekLabel(d.weekStart) }));
+  return (
+    <ResponsiveContainer width="100%" height={140}>
+      <BarChart data={rows}>
+        <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
+        <XAxis dataKey="label" stroke={AXIS_COLOR} fontSize={11} tickLine={false} axisLine={false} />
+        <YAxis stroke={AXIS_COLOR} fontSize={11} tickLine={false} axisLine={false} width={32} />
+        <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
+        <Bar dataKey="minutes" name="Minutes" fill="rgb(var(--color-copper-500))" radius={[4, 4, 0, 0]} />
+      </BarChart>
     </ResponsiveContainer>
   );
 }

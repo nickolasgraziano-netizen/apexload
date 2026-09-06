@@ -2,6 +2,8 @@ export type TrainingVariant = "standard" | "tut";
 export type SetDifficulty = "easy" | "moderate" | "difficult" | "failed";
 export type SetSide = "left" | "right";
 export type IntervalMode = "manual" | "rounds" | "duration";
+export type ActivityType = "strength" | "cardio" | "mixed" | "mobility" | "other";
+export type SessionEndReason = "manual" | "auto_inactivity" | "edited";
 
 // Low/high interval structure for a cardio entry — one round is one low
 // interval followed by one high interval. "manual" mode ran until manually
@@ -76,6 +78,10 @@ export interface WorkoutSession {
   name: string | null; // custom user-given name, overrides the muscle group/template display name
   started_at: string;
   ended_at: string | null;
+  last_activity_at: string;
+  auto_ended_at: string | null;
+  end_reason: SessionEndReason;
+  activity_type: ActivityType;
   time_budget_minutes: number | null;
   notes: string | null;
   dismissed_at: string | null; // manually hidden from Home while still unfinished

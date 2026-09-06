@@ -7,6 +7,11 @@ import { suggestNextWeight } from "@/lib/suggestions";
 import { buildMotivationalMessage } from "@/lib/motivation";
 import { saveWorkoutTemplate, updateWorkoutTemplate } from "@/lib/templates";
 import { formatIntervalSummary } from "@/lib/metrics";
+import {
+  inferActivityTypeFromExercises,
+  isSessionInactive,
+  touchSession,
+} from "@/lib/sessionLifecycle";
 import RestTimer from "@/components/RestTimer";
 import SetRow from "@/components/SetRow";
 import MuscleGroupSelect from "@/components/MuscleGroupSelect";
@@ -265,8 +270,24 @@ export default function ActiveWorkoutPage() {
         .select("*")
         .eq("id", sessionId)
         .single();
+      if (!sess) return;
+      if (isSessionInactive(sess)) {
+        await supabase
+          .from("sessions")
+          .update({
+            ended_at: sess.last_activity_at,
+            auto_ended_at: new Date().toISOString(),
+            end_reason: "auto_inactivity",
+          })
+          .eq("id", sessionId)
+          .is("ended_at", null);
+        router.push(`/workout/${sessionId}/summary`);
+        return;
+      }
+
+      await touchSession(supabase, sessionId);
       setSession(sess as WorkoutSession);
-      setNotes((sess as WorkoutSession)?.notes ?? "");
+      setNotes((sess as WorkoutSession).notes ?? "");
 
       setSkippedIds(
         JSON.parse(sessionStorage.getItem(`apexload:skipped:${sessionId}`) ?? "[]")
@@ -348,7 +369,7 @@ export default function ActiveWorkoutPage() {
         }
       }
     })();
-  }, [sessionId]);
+  }, [sessionId, router]);
 
   // Load history + this-session sets whenever the active exercise changes.
   // Guarded against out-of-order responses: rapidly hopping between
@@ -450,12 +471,27 @@ export default function ActiveWorkoutPage() {
   }, [plannedExercises, sessionId]);
 
   useEffect(() => {
+    if (!sessionId || plannedExercises.length === 0) return;
+    const supabase = createClient();
+    touchSession(supabase, sessionId, {
+      activity_type: inferActivityTypeFromExercises(plannedExercises),
+    });
+  }, [plannedExercises, sessionId]);
+
+  function recordSessionActivity() {
+    if (!sessionId) return;
+    const supabase = createClient();
+    touchSession(supabase, sessionId);
+  }
+
+  useEffect(() => {
     if (!sessionId) return;
     sessionStorage.setItem(`apexload:skipped:${sessionId}`, JSON.stringify(skippedIds));
   }, [skippedIds, sessionId]);
 
   function goToExercise(index: number) {
     const ex = plannedExercises[index];
+    recordSessionActivity();
     setActiveIndex(index);
     setFreshLog(false);
     // Landing on an exercise you already logged sets for this session shows
@@ -472,6 +508,7 @@ export default function ActiveWorkoutPage() {
 
   function skipExercise() {
     if (!activeExercise) return;
+    recordSessionActivity();
     setSkippedIds((prev) => (prev.includes(activeExercise.id) ? prev : [...prev, activeExercise.id]));
     goToNextExercise();
   }
@@ -573,6 +610,9 @@ export default function ActiveWorkoutPage() {
       if (newSet) setSessionSets((prev) => [...prev, newSet as LoggedSet]);
     }
 
+    await touchSession(supabase, sessionId, {
+      activity_type: inferActivityTypeFromExercises(plannedExercises),
+    });
     setSkippedIds((prev) => prev.filter((id) => id !== activeExercise.id));
     setLoggedExerciseIds((prev) =>
       prev.includes(activeExercise.id) ? prev : [...prev, activeExercise.id]
@@ -652,6 +692,9 @@ export default function ActiveWorkoutPage() {
     const { data: newSets } = await supabase.from("sets").insert(rows).select();
 
     if (newSets) setSessionSets((prev) => [...prev, ...(newSets as LoggedSet[])]);
+    await touchSession(supabase, sessionId, {
+      activity_type: inferActivityTypeFromExercises(plannedExercises),
+    });
 
     // Actually doing the exercise after all un-skips it.
     setSkippedIds((prev) => prev.filter((id) => id !== activeExercise.id));
@@ -678,12 +721,14 @@ export default function ActiveWorkoutPage() {
   async function updateSet(id: string, patch: Partial<LoggedSet>) {
     const supabase = createClient();
     await supabase.from("sets").update(patch).eq("id", id);
+    await touchSession(supabase, sessionId);
     setSessionSets((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
   }
 
   async function deleteSet(id: string) {
     const supabase = createClient();
     await supabase.from("sets").delete().eq("id", id);
+    await touchSession(supabase, sessionId);
     setSessionSets((prev) => {
       const next = prev.filter((s) => s.id !== id);
       if (next.length === 0 && activeExercise) {
@@ -697,6 +742,7 @@ export default function ActiveWorkoutPage() {
     const supabase = createClient();
     const trimmed = notes.trim() || null;
     await supabase.from("sessions").update({ notes: trimmed }).eq("id", sessionId);
+    await touchSession(supabase, sessionId);
   }
 
   // Anything planned that isn't explicitly skipped but also has zero logged
@@ -742,12 +788,21 @@ export default function ActiveWorkoutPage() {
 
   async function finishWorkout() {
     const supabase = createClient();
-    await supabase.from("sessions").update({ ended_at: new Date().toISOString() }).eq("id", sessionId);
+    await supabase
+      .from("sessions")
+      .update({
+        ended_at: new Date().toISOString(),
+        last_activity_at: new Date().toISOString(),
+        end_reason: "manual",
+        activity_type: inferActivityTypeFromExercises(plannedExercises),
+      })
+      .eq("id", sessionId);
     sessionStorage.removeItem(`apexload:skipped:${sessionId}`);
     router.push(`/workout/${sessionId}/summary`);
   }
 
   function resumeSkippedExercise(exerciseId: string) {
+    recordSessionActivity();
     const index = plannedExercises.findIndex((e) => e.id === exerciseId);
     if (index !== -1) goToExercise(index);
     setShowEndPrompt(false);
@@ -838,6 +893,7 @@ export default function ActiveWorkoutPage() {
       .is("superset_group_id", null);
 
     setSupersetGroups((prev) => [...prev, { id: group.id, exerciseIds }]);
+    await touchSession(supabase, sessionId);
 
     if (activeExercise && exerciseIds.includes(activeExercise.id)) {
       setSessionSets((prev) =>
@@ -852,10 +908,12 @@ export default function ActiveWorkoutPage() {
     const supabase = createClient();
     await supabase.from("superset_group_exercises").delete().eq("group_id", groupId);
     await supabase.from("superset_groups").delete().eq("id", groupId);
+    await touchSession(supabase, sessionId);
     setSupersetGroups((prev) => prev.filter((g) => g.id !== groupId));
   }
 
   function addExerciseToSession(ex: Exercise) {
+    recordSessionActivity();
     // Picking an exercise to superset with never adds/replaces a tab on its
     // own — it just pairs the two exercises (adding the picked one to the
     // plan first if it's brand new to this session).
@@ -942,6 +1000,7 @@ export default function ActiveWorkoutPage() {
   // Removing a tab is only offered for exercises with nothing logged this
   // session yet, so it can never discard already-logged work.
   function removeExerciseFromSession(ex: Exercise) {
+    recordSessionActivity();
     const removedIndex = plannedExercises.findIndex((p) => p.id === ex.id);
     if (removedIndex === -1) return;
     const next = plannedExercises.filter((p) => p.id !== ex.id);
@@ -1005,6 +1064,7 @@ export default function ActiveWorkoutPage() {
     setNewExerciseName("");
     setNewExerciseIsUnilateral(false);
     setNewExerciseIsCardio(false);
+    await touchSession(supabase, sessionId);
     addExerciseToSession(newExercise as Exercise);
   }
 
@@ -1015,6 +1075,7 @@ export default function ActiveWorkoutPage() {
   );
 
   function toggleGroupingSelection(exerciseId: string) {
+    recordSessionActivity();
     setGroupingSelection((prev) =>
       prev.includes(exerciseId)
         ? prev.filter((id) => id !== exerciseId)
@@ -1027,6 +1088,7 @@ export default function ActiveWorkoutPage() {
   async function confirmSuperset() {
     if (groupingSelection.length < 2) return;
     await createSupersetGroup(groupingSelection);
+    recordSessionActivity();
     setGroupingMode(false);
     setGroupingSelection([]);
   }

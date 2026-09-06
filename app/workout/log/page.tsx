@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import MuscleGroupSelect from "@/components/MuscleGroupSelect";
 import BruceLeeQuote from "@/components/BruceLeeQuote";
+import { inferActivityTypeFromExercises } from "@/lib/sessionLifecycle";
 import type { Exercise, IntervalData, MuscleGroup, SetDifficulty, SetSide, TrainingVariant } from "@/lib/types";
 
 interface SetEntry {
@@ -230,6 +231,9 @@ export default function LogPastWorkoutPage() {
         name: name.trim() || null,
         started_at: startedAt.toISOString(),
         ended_at: endedAt.toISOString(),
+        last_activity_at: endedAt.toISOString(),
+        end_reason: "manual",
+        activity_type: inferActivityTypeFromExercises(entries.map((entry) => entry.exercise)),
         notes: notes.trim() || null,
       })
       .select()
