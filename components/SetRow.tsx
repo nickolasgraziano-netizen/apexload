@@ -48,11 +48,11 @@ export default function SetRow({ set, onUpdate, onDelete }: Props) {
     displayZeroAsEmpty?: boolean;
   }) {
     return (
-      <label className="flex-1">
+      <label className="min-w-0">
         <span className="font-mono text-[10px] uppercase tracking-widest text-chalk-500">
           {label}
         </span>
-        <div className="mt-1 flex items-center gap-2 rounded-lg border border-steel-700 bg-steel-800 p-2">
+        <div className="mt-1 flex w-full min-w-0 items-center gap-2 rounded-lg border border-steel-700 bg-steel-800 p-2">
           <button
             type="button"
             onClick={() => onAdjust(-step)}
@@ -69,7 +69,7 @@ export default function SetRow({ set, onUpdate, onDelete }: Props) {
             value={displayZeroAsEmpty && value === 0 ? "" : value}
             onChange={(e) => onChange(e.target.value === "" ? min : Number(e.target.value))}
             onFocus={(e) => e.target.select()}
-            className="min-w-0 flex-1 border-0 bg-transparent px-1 py-2 text-center font-display text-3xl font-extrabold text-chalk-100 outline-none"
+            className="w-0 min-w-0 flex-1 border-0 bg-transparent px-1 py-2 text-center font-display text-3xl font-extrabold text-chalk-100 outline-none"
           />
           <button
             type="button"
@@ -86,8 +86,8 @@ export default function SetRow({ set, onUpdate, onDelete }: Props) {
 
   if (editing) {
     return (
-      <div className="rounded-lg border border-copper-500 bg-steel-900 p-3">
-        <div className="flex gap-3">
+      <div className="w-full min-w-0 rounded-lg border border-copper-500 bg-steel-900 p-3">
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
           {renderStepper({
             label: "Reps",
             value: reps,
@@ -106,7 +106,7 @@ export default function SetRow({ set, onUpdate, onDelete }: Props) {
             displayZeroAsEmpty: true,
           })}
         </div>
-        <div className="mt-2 flex gap-2">
+        <div className="mt-2 flex flex-wrap gap-2">
           {DIFFICULTIES.map((d) => (
             <button
               key={d}

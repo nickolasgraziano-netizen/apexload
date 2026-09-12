@@ -158,6 +158,41 @@ export default async function DashboardPage() {
         </div>
       </header>
 
+      {/* Interrupted workouts — pick back up right where you left off */}
+      {openSessions && openSessions.length > 0 && (
+        <section className="apex-section flex flex-col gap-2">
+          <h3 className="apex-section-title text-tungsten-400">
+            Resume workout
+          </h3>
+          {openSessions.map((s: any) => (
+            <div
+              key={s.id}
+              className="apex-card-live flex items-center justify-between gap-3 backdrop-blur-md"
+            >
+              <Link href={`/workout/${s.id}`} className="flex-1">
+                <p className="text-chalk-100">
+                  {s.muscle_groups?.name ?? s.workout_templates?.name ?? "Workout"}
+                </p>
+                <p className="mt-0.5 font-mono text-xs text-chalk-500">
+                  Started{" "}
+                  {new Date(s.started_at).toLocaleDateString(undefined, {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </p>
+              </Link>
+              <div className="flex shrink-0 items-center gap-2">
+                <Link href={`/workout/${s.id}`} className="font-mono text-xs text-tungsten-400">
+                  Continue →
+                </Link>
+                <DismissSessionButton sessionId={s.id} />
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+
       {hasMuscleGroupHistory && nextUp.length > 0 && <NextUpSelector items={nextUp} />}
 
       <section className={hasMuscleGroupHistory ? "mt-3" : "mt-28"}>
@@ -205,41 +240,6 @@ export default async function DashboardPage() {
       </section>
 
       <BruceLeeQuote className="mt-4 backdrop-blur-md" />
-
-      {/* Interrupted workouts — pick back up right where you left off */}
-      {openSessions && openSessions.length > 0 && (
-        <section className="apex-section flex flex-col gap-2">
-          <h3 className="apex-section-title text-tungsten-400">
-            Resume workout
-          </h3>
-          {openSessions.map((s: any) => (
-            <div
-              key={s.id}
-              className="apex-card-live flex items-center justify-between gap-3 backdrop-blur-md"
-            >
-              <Link href={`/workout/${s.id}`} className="flex-1">
-                <p className="text-chalk-100">
-                  {s.muscle_groups?.name ?? s.workout_templates?.name ?? "Workout"}
-                </p>
-                <p className="mt-0.5 font-mono text-xs text-chalk-500">
-                  Started{" "}
-                  {new Date(s.started_at).toLocaleDateString(undefined, {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </p>
-              </Link>
-              <div className="flex shrink-0 items-center gap-2">
-                <Link href={`/workout/${s.id}`} className="font-mono text-xs text-tungsten-400">
-                  Continue →
-                </Link>
-                <DismissSessionButton sessionId={s.id} />
-              </div>
-            </div>
-          ))}
-        </section>
-      )}
 
       {user && <TemplateList templates={(templates ?? []) as WorkoutTemplate[]} userId={user.id} />}
 

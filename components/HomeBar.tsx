@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import ThemeSwitcher from "@/components/ThemeSwitcher";
 
 const NAV_ITEMS = [
@@ -27,6 +28,20 @@ const NAV_ITEMS = [
 // routes stay predictable and page headers can focus on the current task.
 export default function HomeBar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (pathname !== "/") return;
+
+    // Client-side workout writes do not invalidate Next's cached Home page.
+    // Refresh on every return, including navigation through browser Back.
+    router.refresh();
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") router.refresh();
+    };
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => document.removeEventListener("visibilitychange", refreshWhenVisible);
+  }, [pathname, router]);
   if (
     pathname === "/login" ||
     pathname === "/forgot-password" ||
