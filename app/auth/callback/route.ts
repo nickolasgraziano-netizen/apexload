@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   const errorCode = requestUrl.searchParams.get("error_code") || requestUrl.searchParams.get("error");
   const errorDescription = requestUrl.searchParams.get("error_description");
   const nextParam = requestUrl.searchParams.get("next");
-  const next = nextParam?.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/";
+  const next = nextParam?.startsWith("/") && !nextParam.startsWith("//") && !nextParam.includes('\\') ? nextParam : "/";
 
   if (errorCode || errorDescription) {
     const url = new URL("/login", requestUrl.origin);
@@ -34,5 +34,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Supabase invitations use an implicit hash-token flow (not PKCE).
+  // A redirect preserves that fragment for the setup page to consume.
+  if (next === '/auth/setup') return NextResponse.redirect(new URL(next, requestUrl.origin));
   return NextResponse.redirect(new URL("/login?error=auth", requestUrl.origin));
 }

@@ -8,6 +8,7 @@ import TemplateList from "@/components/TemplateList";
 import DismissSessionButton from "@/components/DismissSessionButton";
 import BruceLeeQuote from "@/components/BruceLeeQuote";
 import NextUpSelector from "@/components/NextUpSelector";
+import SharedTemplates from "@/components/SharedTemplates";
 import type { OrderedMuscleGroup, WorkoutSession, WorkoutTemplate } from "@/lib/types";
 import Link from "next/link";
 
@@ -22,6 +23,12 @@ export default async function DashboardPage() {
     : { data: null };
 
   if (user) await autoEndStaleSessions(supabase);
+  const [{data:content},{data:shared},{data:announcementsOn},{data:templatesOn}] = await Promise.all([
+    supabase.from('app_content').select('key,title,body').eq('published',true),
+    supabase.from('shared_workout_templates').select('id,name,description').eq('published',true).order('created_at',{ascending:false}),
+    supabase.rpc('apex_feature_enabled',{feature:'announcements'}),
+    supabase.rpc('apex_feature_enabled',{feature:'shared_templates'}),
+  ]);
 
   // Join the user's personal rotation order onto the global muscle group
   // taxonomy — one query, sorted the way this user has arranged their split.
@@ -155,6 +162,7 @@ export default async function DashboardPage() {
             Catalog
           </Link>
           <LogoutButton />
+          <Link href="/account" className="apex-chip">Account</Link>
         </div>
       </header>
 
@@ -240,6 +248,8 @@ export default async function DashboardPage() {
       </section>
 
       <BruceLeeQuote className="mt-4 backdrop-blur-md" />
+      {announcementsOn && content?.map((item:any)=><aside key={item.key} className="apex-card mt-4"><h2 className="apex-section-title text-copper-400">{item.title || (item.key==='announcement'?'From ApexLoad':'Keep going')}</h2><p className="mt-2 text-sm whitespace-pre-wrap break-words">{item.body}</p></aside>)}
+      {templatesOn && <SharedTemplates items={shared??[]} />}
 
       {user && <TemplateList templates={(templates ?? []) as WorkoutTemplate[]} userId={user.id} />}
 

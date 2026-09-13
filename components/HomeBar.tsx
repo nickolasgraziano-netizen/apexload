@@ -46,6 +46,8 @@ export default function HomeBar() {
     pathname === "/login" ||
     pathname === "/forgot-password" ||
     pathname === "/reset-password" ||
+    pathname === "/access-paused" ||
+    pathname.startsWith("/admin") ||
     pathname.startsWith("/auth/")
   ) {
     return null;

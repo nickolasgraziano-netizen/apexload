@@ -1620,6 +1620,8 @@ export default function ActiveWorkoutPage() {
             </button>
           </div>
 
+          {activeExercise.instructions && <p className="apex-copy whitespace-pre-wrap">{activeExercise.instructions}</p>}
+          {activeExercise.demonstration_url?.startsWith('https://') && <a href={activeExercise.demonstration_url} target="_blank" rel="noopener noreferrer" className="inline-block mt-2 text-sm text-copper-400">Exercise demonstration ↗</a>}
           {activeGroup && (
             <div className="mt-2 flex items-center justify-between rounded-lg border border-dashed border-tungsten-500 bg-tungsten-600/10 px-3 py-2">
               <p className="font-mono text-xs text-tungsten-400">⚡ Part of a superset today</p>

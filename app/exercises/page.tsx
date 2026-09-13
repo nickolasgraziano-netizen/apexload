@@ -447,6 +447,9 @@ export default function ExerciseCatalogPage() {
                   )}
                   <div>
                     <p className="font-semibold text-chalk-100">{ex.name}</p>
+                    {ex.equipment && <p className="apex-copy">{ex.equipment}</p>}
+                    {ex.instructions && <p className="apex-copy whitespace-pre-wrap">{ex.instructions}</p>}
+                    {ex.demonstration_url?.startsWith('https://') && <a href={ex.demonstration_url} target="_blank" rel="noopener noreferrer" className="inline-block mt-2 text-sm text-copper-400">Watch demonstration ↗</a>}
                     <div className="flex flex-wrap gap-2">
                       {ex.is_custom && (
                         <span className="font-mono text-[10px] uppercase text-tungsten-400">

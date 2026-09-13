@@ -54,6 +54,9 @@ export interface Exercise {
   is_unilateral: boolean; // trained one side at a time, e.g. single-arm pulldown
   is_cardio: boolean; // logged by duration + notes instead of sets of reps/weight
   default_rest_seconds: number;
+  equipment?: string;
+  instructions?: string;
+  demonstration_url?: string;
 }
 
 export interface ExerciseAlternative {

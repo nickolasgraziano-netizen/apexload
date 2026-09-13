@@ -2,6 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+  .admin-shell { @apply pb-16; }
+  .admin-top { @apply flex flex-wrap items-center justify-between gap-4 border-b border-steel-700 p-5; }
+  .admin-layout { @apply grid md:grid-cols-[190px_minmax(0,1fr)]; }
+  .admin-nav { @apply flex flex-wrap gap-1 border-b border-steel-700 p-3 md:flex-col md:justify-start md:border-b-0 md:border-r; }
+  .admin-nav button { @apply rounded-lg px-3 py-3 text-left text-sm text-chalk-300; }
+  .admin-nav button[aria-current="page"] { @apply bg-steel-800 text-copper-400; }
+  .admin-main { @apply min-w-0 px-4 py-6 sm:p-7; }
+  .admin-card { @apply min-w-0 rounded-xl border border-steel-700 bg-steel-900 p-4 sm:p-5; }
+  .admin-stats { @apply grid gap-3 sm:grid-cols-2; }
+  .admin-columns { @apply grid gap-4 lg:grid-cols-2; }
+  .admin-toolbar { @apply flex flex-wrap items-center gap-2; }
+  .admin-button { @apply inline-flex min-h-11 items-center justify-center rounded-lg border border-steel-600 bg-steel-900 px-3 py-2 text-sm text-chalk-100 disabled:opacity-50; }
+  .admin-button[aria-pressed="true"] { @apply border-copper-500; }
+  .admin-primary { @apply inline-flex min-h-11 items-center justify-center rounded-lg bg-copper-500 px-4 py-3 text-sm font-semibold text-steel-950 disabled:opacity-50; }
+  .admin-field { @apply mt-4 block min-w-0 text-sm text-chalk-300; }
+  .admin-field input,.admin-field select,.admin-field textarea { @apply mt-2 block w-full min-w-0 rounded-lg border border-steel-600 bg-steel-950 p-3 text-base text-chalk-100; }
+  .admin-field textarea { @apply min-h-28; }
+  .admin-fields { @apply grid gap-x-4 sm:grid-cols-2; }
+  .admin-badge { @apply inline-block self-start rounded border border-steel-600 px-2 py-1 font-mono text-xs capitalize; }
+  .admin-list-row { @apply flex flex-wrap items-center justify-between gap-4 border-b border-steel-700 py-4 last:border-0; }
+  .admin-alert { @apply my-4 rounded-lg border border-tungsten-500 bg-steel-900 p-4 text-sm; }
+  .feedback-dialog { @apply w-[calc(100%-2rem)] max-w-lg rounded-xl border border-steel-600 bg-steel-900 p-5 text-chalk-100; max-height:85dvh; }
+  .feedback-dialog::backdrop { background:rgb(0 0 0 / 0.7); }
+}
+
 @layer base {
   /* Theme palettes — RGB channels (space-separated) so Tailwind's
      rgb(var(--x) / alpha) pattern can apply opacity modifiers. Default

@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Barlow_Condensed, Manrope, IBM_Plex_Mono } from "next/font/google";
 import HomeBar from "@/components/HomeBar";
+import AppFrame from "@/components/AppFrame";
+import FeedbackButton from "@/components/FeedbackButton";
 import "./globals.css";
 
 // Runs before paint so a saved theme choice applies immediately instead of
@@ -58,7 +60,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="bg-steel-950 text-chalk-100 font-body antialiased">
         <HomeBar />
-        <div className="mx-auto max-w-md">{children}</div>
+        <AppFrame>{children}</AppFrame>
+        <FeedbackButton />
       </body>
     </html>
   );
