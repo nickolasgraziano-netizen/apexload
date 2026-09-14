@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import type { Exercise } from "@/lib/types";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import WorkoutBuilder, { type WorkoutBuilderSaveArgs } from "@/components/WorkoutBuilder";
 import { saveWorkoutTemplate } from "@/lib/templates";
@@ -12,17 +12,21 @@ import { inferActivityTypeFromExercises } from "@/lib/sessionLifecycle";
 // it — it becomes a reusable template right away, and the live session
 // launches from that template.
 export default function BuildWorkoutPage() {
+  return <Suspense fallback={<main className="apex-page"><p role="status">Loading your workout…</p></main>}><BuildWorkoutRoute /></Suspense>;
+}
+
+function BuildWorkoutRoute() {
+  const params = useSearchParams();
+  return <BuildWorkout key={params.toString()} initialParams={{
+    muscleGroupId: params.get("muscleGroupId") ?? "",
+    name: params.get("name") ?? "",
+    reuseLatest: params.get("reuseLatest") === "1" || Boolean(params.get("muscleGroupId")),
+  }} />;
+}
+
+function BuildWorkout({ initialParams }: { initialParams: { muscleGroupId: string; name: string; reuseLatest: boolean } }) {
   const router = useRouter();
   const [starting, setStarting] = useState(false);
-  const [initialParams] = useState(() => {
-    if (typeof window === "undefined") return { muscleGroupId: "", name: "", reuseLatest: false };
-    const params = new URLSearchParams(window.location.search);
-    return {
-      muscleGroupId: params.get("muscleGroupId") ?? "",
-      name: params.get("name") ?? "",
-      reuseLatest: params.get("reuseLatest") === "1",
-    };
-  });
   const [seed, setSeed] = useState<{ exercises: Exercise[]; groups: string[][] } | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [retry, setRetry] = useState(0);
