@@ -642,8 +642,17 @@ export default function ActiveWorkoutPage() {
     setCardioEditing(true);
   }
 
+  const logSetPending = useRef(false);
+  const [loggingSet, setLoggingSet] = useState(false);
+  const [logSetError, setLogSetError] = useState<string | null>(null);
+
   async function logSet() {
-    if (!activeExercise || !userId) return;
+    if (!activeExercise || !userId || logSetPending.current) return;
+    // Lock synchronously: a second tap can arrive before React renders disabled.
+    logSetPending.current = true;
+    setLoggingSet(true);
+    setLogSetError(null);
+    try {
     const supabase = createClient();
     // Max of existing set_numbers rather than a raw row count — a unilateral
     // round logs two rows (left + right) sharing one set_number, so counting
@@ -689,12 +698,16 @@ export default function ActiveWorkoutPage() {
           ]
         : [{ ...base, actual_reps: reps, weight, side: null }];
 
-    const { data: newSets } = await supabase.from("sets").insert(rows).select();
+    const { data: newSets, error } = await supabase.from("sets").insert(rows).select();
+    if (error || !newSets?.length) {
+      setLogSetError("Could not confirm this set was saved. Check your sets before trying again.");
+      return;
+    }
 
     if (newSets) setSessionSets((prev) => [...prev, ...(newSets as LoggedSet[])]);
-    await touchSession(supabase, sessionId, {
+    void touchSession(supabase, sessionId, {
       activity_type: inferActivityTypeFromExercises(plannedExercises),
-    });
+    }).catch(() => { /* The set is saved; activity refresh must not suggest retrying it. */ });
 
     // Actually doing the exercise after all un-skips it.
     setSkippedIds((prev) => prev.filter((id) => id !== activeExercise.id));
@@ -716,6 +729,12 @@ export default function ActiveWorkoutPage() {
     setRestKey((k) => k + 1);
     setJustLoggedSet(true);
     setFreshLog(true);
+    } catch {
+      setLogSetError("Could not confirm this set was saved. Check your sets before trying again.");
+    } finally {
+      logSetPending.current = false;
+      setLoggingSet(false);
+    }
   }
 
   async function updateSet(id: string, patch: Partial<LoggedSet>) {
@@ -2044,10 +2063,13 @@ export default function ActiveWorkoutPage() {
               </div>
               <button
                 onClick={logSet}
-                className="mt-3 w-full rounded-lg bg-copper-500 py-4 font-semibold text-steel-950"
+                disabled={loggingSet}
+                aria-busy={loggingSet}
+                className="mt-3 w-full rounded-lg bg-copper-500 py-4 font-semibold text-steel-950 disabled:cursor-wait disabled:opacity-60"
               >
-                Log set
+                <span role="status">{loggingSet ? "Logging set…" : "Log set"}</span>
               </button>
+              {logSetError && <p role="alert" className="mt-2 text-sm text-copper-400">{logSetError}</p>}
             </div>
           )}
             </>
