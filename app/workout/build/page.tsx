@@ -45,9 +45,10 @@ function BuildWorkout({ initialParams }: { initialParams: { muscleGroupId: strin
       if (authError || !user) throw new Error("Sign in required");
       // Match actual exercises, including custom/template sessions whose group is null.
       const { data: latest, error } = await db.from("sets")
-        .select("session_id, exercises!inner(muscle_group_id), sessions!inner(user_id, ended_at)")
+        .select("session_id, exercises!inner(muscle_group_id), sessions!inner(user_id, ended_at, dismissed_at)")
         .eq("sessions.user_id", user.id)
         .not("sessions.ended_at", "is", null)
+        .is("sessions.dismissed_at", null)
         .eq("exercises.muscle_group_id", initialParams.muscleGroupId)
         .order("logged_at", { ascending: false }).limit(1).maybeSingle();
       if (error) throw error;

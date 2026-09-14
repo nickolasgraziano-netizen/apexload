@@ -86,7 +86,10 @@ export default async function DashboardPage() {
     .limit(200);
   const { data: recentSetRows } = await supabase
     .from("sets")
-    .select("weight, logged_at, exercise_id, exercises ( name, muscle_group_id )")
+    .select("weight, logged_at, exercise_id, exercises ( name, muscle_group_id ), sessions!inner ( ended_at, dismissed_at )")
+    // Test/unfinished and removed workouts must not advance the rotation.
+    .not("sessions.ended_at", "is", null)
+    .is("sessions.dismissed_at", null)
     .not("weight", "is", null)
     .order("logged_at", { ascending: false })
     .limit(500);
