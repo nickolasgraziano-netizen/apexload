@@ -67,7 +67,7 @@ export default function RestTimer({ defaultSeconds = 30, message, hidden = false
           style={{ width: `${pct}%` }}
         />
       </div>
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="apex-rest-timer-main flex items-baseline gap-3">
             <p className="font-mono text-xs uppercase tracking-widest text-chalk-500">Resting</p>
@@ -75,11 +75,6 @@ export default function RestTimer({ defaultSeconds = 30, message, hidden = false
               {remaining === 0 ? "Go" : `0:${String(remaining).padStart(2, "0")}`}
             </p>
           </div>
-          {message && (
-            <p className="apex-rest-timer-message mt-1 truncate text-sm leading-5 text-tungsten-400">
-              {message}
-            </p>
-          )}
         </div>
         <div className="apex-rest-timer-actions grid shrink-0 grid-cols-3 gap-2">
           <button
@@ -104,6 +99,11 @@ export default function RestTimer({ defaultSeconds = 30, message, hidden = false
           </button>
         </div>
       </div>
+      {message && (
+        <p className="apex-rest-timer-message mt-2 whitespace-normal break-words text-sm leading-5 text-tungsten-400">
+          {message}
+        </p>
+      )}
       </div>
     </div>
   );
