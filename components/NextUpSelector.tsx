@@ -28,6 +28,7 @@ export default function NextUpSelector({ items }: { items: NextUpItem[] }) {
     const params = new URLSearchParams({
       muscleGroupId: selected.muscleGroupId,
       name: selected.name,
+      reuseLatest: "1",
     });
     return `/workout/build?${params.toString()}`;
   }, [selected]);
